@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Player of the Match — Taylor G Graphics</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="engine.css">
+  <style>
+    /* Full-screen Player of the Game reveal — its own dedicated OBS scene
+       (volleyball had no prior Player of the Game graphic to replace).
+       Built on the shared .fs- fullscreen system (same look as the Stats
+       Report / Keys to Victory scenes), with a player name/number + stat
+       list in place of the score row, sponsored by Taylor G Graphics. */
+
+    .potg-row {
+      display: flex;
+      align-items: baseline;
+      gap: 20px;
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    .fs-wrap.show .potg-row { animation: fade-rise 0.5s 0.62s ease forwards; }
+
+    .potg-num {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 40px;
+      font-weight: 800;
+      color: #072a63;
+      background: #ffffff;
+      padding: 6px 18px;
+      border-radius: 10px;
+    }
+
+    .potg-name {
+      font-size: 64px;
+      font-weight: 900;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      text-shadow: 0 4px 18px rgba(0,0,0,0.6);
+      white-space: nowrap;
+    }
+
+    .potg-stats {
+      display: flex;
+      gap: 40px;
+      flex-wrap: wrap;
+      justify-content: center;
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    .fs-wrap.show .potg-stats { animation: fade-rise 0.5s 0.72s ease forwards; }
+
+    .potg-stat {
+      font-size: 22px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.8);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .potg-stat b {
+      font-family: 'Orbitron', sans-serif;
+      color: #fff;
+      font-weight: 800;
+      font-size: 29px;
+      margin-right: 8px;
+    }
+    .potg-stat-empty {
+      font-size: 20px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.35);
+    }
+
+    /* Plain (non letter-by-letter) two-line title — avoids the shared
+       .fs-title-wrap flex layout, which is sized/spaced for a single short
+       word per line (e.g. "STATS" / "REPORT") and both overlaps and
+       collapses inter-word spaces when given a multi-word phrase. */
+    .potg-title-block { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .potg-title-line {
+      font-size: 92px;
+      font-weight: 900;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      text-shadow: 0 6px 28px rgba(0,0,0,0.7);
+      line-height: 1.05;
+      opacity: 0;
+      transform: translateY(40px);
+    }
+    .fs-wrap.show .potg-title-line:nth-child(1) { animation: letter-rise 0.55s 0.1s cubic-bezier(0.16,1,0.3,1) forwards; }
+    .fs-wrap.show .potg-title-line:nth-child(2) { animation: letter-rise 0.55s 0.28s cubic-bezier(0.16,1,0.3,1) forwards; }
+  </style>
+</head>
+<body>
+
+  <div id="overlay-root" class="fs-wrap" style="--accent:#0096e6; --accent-2:#004a73;">
+    <div class="fs-bg">
+      <div class="fs-scan"></div>
+      <div class="fs-center">
+        <div class="fs-icon">🏅</div>
+        <div class="potg-title-block">
+          <div class="potg-title-line">Player of the</div>
+          <div class="potg-title-line">Match</div>
+        </div>
+        <div class="fs-underline"></div>
+
+        <div class="potg-row">
+          <div class="potg-num" id="pog-num" style="display:none;"></div>
+          <div class="potg-name" id="pog-name">Not Yet Selected</div>
+        </div>
+        <div class="potg-stats" id="pog-stats"></div>
+
+        <div class="fs-sponsor">
+          <img src="../Taylor Graphics.png" alt="Taylor G Graphics">
+          <div class="fs-sponsor-text">
+            <div class="eyebrow-fs">Presented by</div>
+            <div class="name-fs">Taylor G Graphics</div>
+          </div>
+        </div>
+      </div>
+      <div class="fs-brand-corner">
+        <div class="brand-name" style="color:#fff;">Rich Rebels</div>
+        <div class="brand-sub" style="color:rgba(255,255,255,0.6);">Volleyball — Live</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="engine.js"></script>
+  <script src="https://js.pusher.com/8.4/pusher.min.js"></script>
+  <script>
+    // Live player + stats, fed by stat_keeper.html's volleyball tab over the
+    // same obs-websocket BroadcastCustomEvent relay used elsewhere in this
+    // project (docks/sources don't share localStorage).
+    const STAT_LABELS = { kill: 'Kills', dig: 'Digs', assist: 'Assists', ace: 'Aces', block: 'Blocks' };
+    // Errors are intentionally excluded — not a highlight stat for a
+    // Player of the Game honor.
+    const POG_KEYS = ['kill', 'dig', 'assist', 'ace', 'block'];
+
+    // Stat Keeper (2026-08-02 revamp) identifies the POG pick by a stable
+    // player id (vb.pog.pog) rather than a flat roster index, and stats
+    // live on the player object itself (no more parallel stats[] array).
+    function renderPOTG(fullState) {
+      const vb = (fullState && fullState.volleyball) || { roster: [], pog: {} };
+      const pog = vb.pog || {};
+      const id = typeof pog.pog === 'number' ? pog.pog : -1;
+      const player = id >= 0 ? (vb.roster || []).find(p => p.id === id) : null;
+      const stats = (player && player.stats) || {};
+
+      const nameEl = document.getElementById('pog-name');
+      const numEl = document.getElementById('pog-num');
+      const statsEl = document.getElementById('pog-stats');
+
+      if (player && player.name && player.name.trim()) {
+        nameEl.textContent = player.name.toUpperCase();
+        if (player.number) {
+          numEl.textContent = '#' + player.number;
+          numEl.style.display = '';
+        } else {
+          numEl.style.display = 'none';
+        }
+      } else {
+        nameEl.textContent = 'Not Yet Selected';
+        numEl.style.display = 'none';
+      }
+
+      statsEl.innerHTML = '';
+      let any = false;
+      POG_KEYS.forEach(key => {
+        const v = stats[key] || 0;
+        if (v > 0) {
+          any = true;
+          const el = document.createElement('div');
+          el.className = 'potg-stat';
+          el.innerHTML = '<b>' + v + '</b>' + STAT_LABELS[key];
+          statsEl.appendChild(el);
+        }
+      });
+      if (!any) {
+        statsEl.innerHTML = '<div class="potg-stat-empty">No stats recorded yet</div>';
+      }
+    }
+
+    // Stat Keeper can be open in more than one place at once — every real
+    // edit stamps a fresh _updatedAt, and we keep whichever incoming state
+    // is newest so an idle/stale instance can never stomp the active one.
+    let lastAppliedUpdatedAt = 0;
+    function applyIncoming(fullState) {
+      const ts = (fullState && fullState._updatedAt) || 0;
+      if (ts < lastAppliedUpdatedAt) return;
+      lastAppliedUpdatedAt = ts;
+      renderPOTG(fullState);
+    }
+
+    let statState = null;
+    try {
+      const saved = JSON.parse(localStorage.getItem('rebel-stat-report'));
+      if (saved) statState = saved;
+    } catch (e) {}
+    if (statState) lastAppliedUpdatedAt = statState._updatedAt || 0;
+    renderPOTG(statState);
+
+    const statBC = new BroadcastChannel('rebel-stat-report');
+    statBC.onmessage = (e) => { applyIncoming(e.data); };
+
+    /* ── Pusher relay (2026-09-04 rearchitecture) ─────────────────────
+       Replaces the old obs-websocket relay (ws://127.0.0.1:4455), which
+       only worked when stat_keeper.html and OBS were on the same LAN.
+       stat_keeper.html is now a hosted website that POSTs state to a
+       Cloudflare Pages Function, which triggers this Pusher event
+       server-side. OBS's browser source has internet access already (it's
+       already streaming), so this scene just subscribes directly — no LAN
+       hop needed. Key/cluster are duplicated per file on purpose, same as
+       every other constant in this build (see stat_keeper_build.md). */
+    const PUSHER_KEY = '07bf6d5184f7c6971a1c';
+    const PUSHER_CLUSTER = 'us3';
+    const PUSHER_CHANNEL = 'rebel-stat-report';
+    const PUSHER_EVENT = 'state-update';
+    (function connectStatRelay() {
+      const pusher = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
+      const channel = pusher.subscribe(PUSHER_CHANNEL);
+      channel.bind(PUSHER_EVENT, (data) => {
+        if (data && data.state) applyIncoming(data.state);
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Stats Report — Mike's Market / Ace Hardware</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="engine.css">
+  <style>
+    /* Large, easy-to-read full-screen stats summary — this is its own
+       dedicated OBS scene (not a toggled overlay), so it fills the whole
+       1920x1080 canvas. Reuses the shared .fs- fullscreen system from
+       engine.css (same look as the Halftime/Postgame score mirror) with a
+       stat grid in place of the score row. Sponsor branding: Mike's Market /
+       Ace Hardware (2026-08-13 reassignment — was Mike's Market alone).
+       Team name +
+       underline are overridden to team blue instead of the sponsor accent color. */
+    .fs-statwrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 26px;
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    .fs-wrap.show .fs-statwrap { animation: fade-rise 0.5s 0.62s ease forwards; }
+
+    .fs-statteam {
+      font-size: 30px;
+      font-weight: 800;
+      color: #4f8dff;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+    }
+
+    /* Override the shared engine.css underline just for this scene — team
+       blue instead of the sponsor accent, to match the blue team name below it. */
+    #overlay-root .fs-underline {
+      background: linear-gradient(90deg, #2f6fed, #143a91);
+    }
+
+    .fs-leadergrid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 26px;
+    }
+
+    .fs-leadercard {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      min-width: 300px;
+      padding: 30px 34px;
+      border-radius: 20px;
+      background: linear-gradient(160deg, rgba(28,52,110,0.55), rgba(6,10,26,0.85));
+      border: 1px solid rgba(150,190,255,0.28);
+      box-shadow: 0 10px 34px -10px rgba(0,0,0,0.6);
+    }
+
+    .fs-leadercat {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      color: #9fc0ff;
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    .fs-leadername {
+      font-size: 30px;
+      font-weight: 800;
+      color: #fff;
+      text-transform: uppercase;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .fs-leaderval {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 68px;
+      font-weight: 900;
+      color: #fff;
+      line-height: 1;
+      text-shadow: 0 0 24px rgba(255,255,255,0.25);
+    }
+
+    .fs-leaderempty {
+      font-size: 22px;
+      color: rgba(255,255,255,0.35);
+      font-weight: 700;
+      padding: 20px 0 14px;
+    }
+
+    .fs-totalsstrip {
+      display: flex;
+      gap: 44px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .fs-totalsstrip .t {
+      font-size: 22px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.75);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .fs-totalsstrip .t b {
+      font-family: 'Orbitron', sans-serif;
+      color: #fff;
+      font-weight: 800;
+      font-size: 28px;
+      margin-right: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="overlay-root" class="fs-wrap" style="--accent:#e41823; --accent-2:#1c7a30;">
+    <div class="fs-bg">
+      <div class="fs-scan"></div>
+      <div class="fs-center">
+        <div class="fs-icon">📊</div>
+        <div>
+          <div class="fs-title-wrap"><span style="animation-delay:0.00s">S</span><span style="animation-delay:0.08s">T</span><span style="animation-delay:0.16s">A</span><span style="animation-delay:0.24s">T</span><span style="animation-delay:0.32s">S</span></div>
+          <div class="fs-title-wrap"><span style="animation-delay:0.40s">R</span><span style="animation-delay:0.48s">E</span><span style="animation-delay:0.56s">P</span><span style="animation-delay:0.64s">O</span><span style="animation-delay:0.72s">R</span><span style="animation-delay:0.80s">T</span></div>
+        </div>
+        <div class="fs-underline"></div>
+
+        <div class="fs-statwrap">
+          <div class="fs-statteam" id="stat-team">REBELS</div>
+          <div class="fs-leadergrid" id="leader-grid"></div>
+          <div class="fs-totalsstrip" id="totals-strip"></div>
+        </div>
+
+        <div class="fs-sponsor">
+          <img src="../Mikes Market & Ace.png" alt="Mike's Market / Ace Hardware">
+          <div class="fs-sponsor-text">
+            <div class="eyebrow-fs">Presented by</div>
+            <div class="name-fs">Mike's Market / Ace Hardware</div>
+          </div>
+        </div>
+      </div>
+      <div class="fs-brand-corner">
+        <div class="brand-name" style="color:#fff;">Rich Rebels</div>
+        <div class="brand-sub" style="color:rgba(255,255,255,0.6);">Football — Live</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="engine.js"></script>
+  <script src="https://js.pusher.com/8.4/pusher.min.js"></script>
+  <script>
+    // Live stats, fed by stat_keeper.html's football tab over the same
+    // obs-websocket BroadcastCustomEvent relay used by the scoreboards
+    // (docks/sources don't share localStorage — see project memory).
+    const LEADER_CATEGORIES = [
+      { key: 'passYd', label: 'Passing Yds' },
+      { key: 'rushYd', label: 'Rushing Yds' },
+      { key: 'recYd',  label: 'Receiving Yds' },
+      { key: 'tackle', label: 'Tackles' }
+    ];
+    const TOTAL_KEYS = [
+      { key: 'passYd', label: 'Pass Yds' },
+      { key: 'rushYd', label: 'Rush Yds' },
+      { key: 'recYd',  label: 'Rec Yds' },
+      { key: 'tackle', label: 'Tackles' },
+      { key: 'sack',   label: 'Sacks' }
+    ];
+
+    // Stat Keeper (2026-08-21 revamp) is a flat roster now, same as
+    // volleyball/basketball — no more offense/defense/position-group
+    // flattening needed here.
+    function allPlayers(sport) {
+      return (sport && sport.roster) || [];
+    }
+
+    function computeLeader(sport, key) {
+      let best = null;
+      allPlayers(sport).forEach(p => {
+        if (!p || !p.name || !p.name.trim()) return;
+        const val = (p.stats && p.stats[key]) || 0;
+        if (val > 0 && (!best || val > best.val)) best = { name: p.name, number: p.number, val };
+      });
+      return best;
+    }
+
+    function computeTeamTotal(sport, key) {
+      let total = 0;
+      allPlayers(sport).forEach(p => {
+        if (!p || !p.name || !p.name.trim()) return;
+        total += (p.stats && p.stats[key]) || 0;
+      });
+      return total;
+    }
+
+    function renderStatReport(fullState) {
+      const sport = (fullState && fullState.football) || { roster: [], stats: [] };
+      document.getElementById('stat-team').textContent = (sport.teamName || 'Rebels').toUpperCase();
+
+      const grid = document.getElementById('leader-grid');
+      grid.innerHTML = '';
+      LEADER_CATEGORIES.forEach(cat => {
+        const leader = computeLeader(sport, cat.key);
+        const card = document.createElement('div');
+        card.className = 'fs-leadercard';
+        if (leader) {
+          card.innerHTML =
+            '<div class="fs-leadercat">' + cat.label + ' Leader</div>' +
+            '<div class="fs-leaderval">' + leader.val + '</div>' +
+            '<div class="fs-leadername">' + (leader.number ? '#' + leader.number + ' ' : '') + leader.name + '</div>';
+        } else {
+          card.innerHTML = '<div class="fs-leadercat">' + cat.label + ' Leader</div><div class="fs-leaderempty">No stats yet</div>';
+        }
+        grid.appendChild(card);
+      });
+
+      const strip = document.getElementById('totals-strip');
+      strip.innerHTML = '';
+      TOTAL_KEYS.forEach(t => {
+        const el = document.createElement('div');
+        el.className = 't';
+        el.innerHTML = '<b>' + computeTeamTotal(sport, t.key) + '</b>' + t.label;
+        strip.appendChild(el);
+      });
+    }
+
+    // Stat Keeper can be open in more than one place at once (the OBS "Stat
+    // Keeper" custom browser dock left open, plus someone actively tracking
+    // on an iPad) — each open instance broadcasts its own state every 2s.
+    // Without a freshness check, whichever one happened to send *last* wins,
+    // which made this scene periodically flash back to zero whenever the
+    // idle/stale instance's turn came around. Every real edit in
+    // stat_keeper.html now stamps a fresh _updatedAt, so we keep whichever
+    // incoming state is newest and silently ignore anything older.
+    let lastAppliedUpdatedAt = 0;
+    function applyIncoming(fullState) {
+      const ts = (fullState && fullState._updatedAt) || 0;
+      if (ts < lastAppliedUpdatedAt) return;
+      lastAppliedUpdatedAt = ts;
+      renderStatReport(fullState);
+    }
+
+    let statState = null;
+    try {
+      const saved = JSON.parse(localStorage.getItem('rebel-stat-report'));
+      if (saved) statState = saved;
+    } catch (e) {}
+    if (statState) lastAppliedUpdatedAt = statState._updatedAt || 0;
+    renderStatReport(statState);
+
+    const statBC = new BroadcastChannel('rebel-stat-report');
+    statBC.onmessage = (e) => { applyIncoming(e.data); };
+
+    /* ── Pusher relay (2026-09-04 rearchitecture) ─────────────────────
+       Replaces the old obs-websocket relay (ws://127.0.0.1:4455), which
+       only worked when stat_keeper.html and OBS were on the same LAN.
+       stat_keeper.html is now a hosted website that POSTs state to a
+       Cloudflare Pages Function, which triggers this Pusher event
+       server-side. OBS's browser source has internet access already (it's
+       already streaming), so this scene just subscribes directly — no LAN
+       hop needed. Key/cluster are duplicated per file on purpose, same as
+       every other constant in this build (see stat_keeper_build.md). */
+    const PUSHER_KEY = '07bf6d5184f7c6971a1c';
+    const PUSHER_CLUSTER = 'us3';
+    const PUSHER_CHANNEL = 'rebel-stat-report';
+    const PUSHER_EVENT = 'state-update';
+    (function connectStatRelay() {
+      const pusher = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
+      const channel = pusher.subscribe(PUSHER_CHANNEL);
+      channel.bind(PUSHER_EVENT, (data) => {
+        if (data && data.state) applyIncoming(data.state);
+      });
+    })();
+  </script>
+</body>
+</html>

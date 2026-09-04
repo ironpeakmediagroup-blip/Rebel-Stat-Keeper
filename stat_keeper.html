@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Rich Rebels — Stat Keeper</title>
+<!-- Lets an iPad (or phone) treat this as a standalone app: Safari's
+     "Add to Home Screen" will use these to launch full-screen, with no
+     address bar, using broadcast_logo.png as the app icon. Harmless when
+     loaded as a plain OBS dock — these tags are simply ignored there. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Stat Keeper">
+<meta name="theme-color" content="#0d1623">
+<link rel="apple-touch-icon" href="broadcast_logo.png">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Montserrat', 'Arial Black', sans-serif;
+    background: #0d1623;
+    color: #fff;
+    padding: 12px;
+    min-width: 300px;
+    user-select: none;
+  }
+
+  /* ── Sport tabs ───────────────────────────────────── */
+  .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .tab-btn {
+    flex: 1;
+    padding: 10px 6px;
+    border-radius: 7px;
+    border: 1px solid rgba(150,190,255,0.25);
+    background: #131f33;
+    color: rgba(255,255,255,0.6);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  .tab-btn.active {
+    background: linear-gradient(135deg, #1a4fd6, #0a2680);
+    color: #fff;
+    border-color: #4169e1;
+  }
+
+  /* ── Connection status ────────────────────────────── */
+  .conn-status {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+    color: rgba(255,255,255,0.4);
+    padding: 6px 4px 12px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: #7a8699; }
+  .conn-dot.on { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.8); }
+
+  /* ── Section headers ──────────────────────────────── */
+  .section-title {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase;
+    color: #9fc0ff; margin: 16px 0 8px;
+  }
+  .section-title:first-child { margin-top: 0; }
+
+  /* ── Team name row ────────────────────────────────── */
+  .team-name-row { display: flex; gap: 6px; }
+  .team-name-row input {
+    flex: 1;
+    background: #0a1628;
+    border: 1px solid rgba(65,105,225,0.4);
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: #fff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .team-name-row button, .roster-add {
+    background: #1a4fd6;
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 8px 14px;
+    cursor: pointer;
+  }
+
+  /* ── Undo / Reset control row ─────────────────────── */
+  .controls-row { display: flex; gap: 6px; margin: 10px 0 4px; }
+  .undo-btn {
+    flex: 1;
+    background: rgba(159,192,255,0.12);
+    border: 1px solid rgba(159,192,255,0.35);
+    border-radius: 6px;
+    color: #cfe0ff;
+    font-family: inherit;
+    font-size: 12px; font-weight: 800;
+    padding: 9px;
+    cursor: pointer;
+  }
+  .undo-btn:disabled { opacity: 0.35; cursor: default; }
+
+  /* ── Roster / player cards ────────────────────────── */
+  .roster-add { width: 100%; margin-bottom: 10px; }
+  .player-card {
+    background: #0a1628;
+    border: 1px solid rgba(65,105,225,0.25);
+    border-radius: 8px;
+    padding: 8px 8px 10px;
+    margin-bottom: 8px;
+  }
+  .player-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+  .player-head input.p-num {
+    width: 40px; text-align: center;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 4px;
+    color: #fff; font-family: 'Orbitron', sans-serif; font-size: 12px; font-weight: 700;
+    padding: 6px 2px;
+  }
+  .player-head input.p-name {
+    flex: 1;
+    min-width: 90px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 4px;
+    color: #fff; font-family: inherit; font-size: 12px; font-weight: 600;
+    padding: 6px 8px;
+  }
+
+  /* ── Player of the Game checkbox ──────────────────── */
+  .pog-chip {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 9px; font-weight: 800; letter-spacing: 0.04em;
+    color: #9fc0ff; text-transform: uppercase;
+    flex-shrink: 0;
+    background: rgba(240,168,0,0.08);
+    border: 1px solid rgba(240,168,0,0.3);
+    border-radius: 5px;
+    padding: 4px 7px;
+  }
+  .pog-chip input[type="checkbox"] { width: 15px; height: 15px; accent-color: #f0a800; cursor: pointer; }
+
+  /* ── Inline stat chips ────────────────────────────── */
+  .stat-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .stat-chip {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(65,105,225,0.2);
+    border-radius: 6px;
+    padding: 6px 8px;
+  }
+  .chip-label { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.65); white-space: nowrap; }
+  .chip-count {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 14px; font-weight: 800; color: #fff;
+    min-width: 1.6ch; text-align: center;
+  }
+  .chip-btns { display: flex; gap: 3px; }
+  .chip-btn {
+    background: rgba(65,105,225,0.18);
+    border: 1px solid rgba(65,105,225,0.4);
+    border-radius: 4px;
+    color: #cfe0ff;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px; font-weight: 700;
+    padding: 5px 7px;
+    cursor: pointer;
+    min-width: 26px;
+  }
+  .chip-btn:hover { background: rgba(65,105,225,0.32); }
+  /* ── -1 buttons (football only) ───────────────────── */
+  .chip-btn-minus {
+    background: rgba(185,28,28,0.18);
+    border-color: rgba(185,28,28,0.4);
+    color: #ffb3b3;
+  }
+  .chip-btn-minus:hover { background: rgba(185,28,28,0.32); }
+
+  /* ── Team totals ──────────────────────────────────── */
+  .totals-grid { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; }
+  .totals-grid .t-label { font-size: 12px; color: rgba(255,255,255,0.6); font-weight: 600; }
+  .totals-grid .t-value { font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 800; color: #9fc0ff; text-align: right; }
+
+  /* ── Reset button ─────────────────────────────────── */
+  .reset-btn {
+    width: 100%;
+    margin-top: 16px;
+    background: rgba(185,28,28,0.15);
+    border: 1px solid rgba(185,28,28,0.4);
+    border-radius: 6px;
+    color: #ff8080;
+    font-family: inherit;
+    font-size: 12px; font-weight: 800;
+    padding: 10px;
+    cursor: pointer;
+  }
+  .reset-btn.confirm { background: #b91c1c; color: #fff; }
+
+  * { -webkit-tap-highlight-color: transparent; }
+
+  /* ── Touch targets — auto-detects a touch device (iPad/phone) and
+     enlarges tappable areas; a mouse-driven OBS dock never matches this
+     media query, so its layout is untouched. ── */
+  @media (hover: none) and (pointer: coarse) {
+    body { padding: 18px; font-size: 15px; }
+    .tab-btn { padding: 18px 8px; font-size: 15px; }
+    .team-name-row input { padding: 14px 14px; font-size: 16px; }
+    .team-name-row button { padding: 14px 18px; font-size: 14px; }
+    .undo-btn { padding: 14px; font-size: 13px; }
+    .player-card { padding: 12px 10px 14px; }
+    .player-head input.p-num { width: 56px; padding: 13px 4px; font-size: 15px; }
+    .player-head input.p-name { padding: 13px 12px; font-size: 15px; }
+    .pog-chip { font-size: 11px; padding: 8px 10px; }
+    .pog-chip input[type="checkbox"] { width: 22px; height: 22px; }
+    .roster-add { padding: 16px; font-size: 14px; }
+    .stat-chip { padding: 10px 12px; }
+    .chip-label { font-size: 12px; }
+    .chip-count { font-size: 17px; min-width: 2ch; }
+    .chip-btn { padding: 13px 15px; font-size: 13px; min-width: 42px; min-height: 38px; }
+    .reset-btn { padding: 18px; font-size: 14px; }
+  }
+
+</style>
+</head>
+<body>
+
+  <div class="tabs" id="tabs"></div>
+  <div id="panels"></div>
+  <div class="conn-status"><span class="conn-dot" id="conn-dot"></span><span id="conn-text">Connecting…</span></div>
+
+<script>
+  const SPORTS = ['football', 'volleyball', 'basketball'];
+  const SPORT_META = {
+    football:   { icon: '🏈', label: 'Football',   defaultTeam: 'Rebels' },
+    volleyball: { icon: '🏐', label: 'Volleyball',  defaultTeam: 'Rebels' },
+    basketball: { icon: '🏀', label: 'Basketball',  defaultTeam: 'Rich Rebels' }
+  };
+
+  // ── Stat schemas ──────────────────────────────────────────────────
+  // type 'add5'  -> +1 and +5 buttons (yardage stats)
+  // type 'inc'   -> a single +1 button (counting stats)
+  // type 'pts'   -> +1 / +2 / +3 buttons, all adding straight to one raw
+  //                 "points" counter (basketball scoring)
+  //
+  // Football (2026-08-21 revamp) dropped the offense/defense/position-group
+  // breakdown — every player is now one flat card showing all ten stats,
+  // same "one roster, every stat visible" pattern volleyball/basketball
+  // already used. Football is also the only sport that gets a -1 button
+  // next to every +1 (see renderStatChip's `minus` flag) — Bradley chose to
+  // leave volleyball/basketball's existing +1-only (and +2/+3 for
+  // basketball points) buttons as-is.
+  const FOOTBALL_STATS = [
+    { key: 'passYd',    label: 'Pass Yds',      type: 'add5' },
+    { key: 'passTD',    label: 'Pass TD',       type: 'inc'  },
+    { key: 'rushYd',    label: 'Rush Yds',      type: 'add5' },
+    { key: 'rushTD',    label: 'Rush TD',       type: 'inc'  },
+    { key: 'recYd',     label: 'Rec Yds',       type: 'add5' },
+    { key: 'recTD',     label: 'Rec TD',        type: 'inc'  },
+    { key: 'sack',      label: 'Sacks',         type: 'inc'  },
+    { key: 'tackle',    label: 'Tackles',       type: 'inc'  },
+    { key: 'int',       label: 'INT',           type: 'inc'  },
+    { key: 'fumForced', label: 'Forced Fumble', type: 'inc'  }
+  ];
+
+  const VOLLEYBALL_STATS = [
+    { key: 'kill',   label: 'Kills',   type: 'inc' },
+    { key: 'block',  label: 'Blocks',  type: 'inc' },
+    { key: 'dig',    label: 'Digs',    type: 'inc' },
+    { key: 'ace',    label: 'Aces',    type: 'inc' },
+    { key: 'assist', label: 'Assists', type: 'inc' }
+  ];
+
+  const BASKETBALL_STATS = [
+    { key: 'points', label: 'Points',    type: 'pts' },
+    { key: 'oreb',   label: 'Off. Reb.', type: 'inc' },
+    { key: 'dreb',   label: 'Def. Reb.', type: 'inc' },
+    { key: 'stl',    label: 'Steals',    type: 'inc' },
+    { key: 'ast',    label: 'Assists',   type: 'inc' },
+    { key: 'blk',    label: 'Blocks',    type: 'inc' },
+    { key: 'to',     label: 'Turnovers', type: 'inc' }
+  ];
+
+  // Every sport is now a flat roster. Football keeps two Player of the Game
+  // honors (Offensive/Defensive) even without side tabs anymore — Bradley's
+  // choice — so POG_DEFS holds an array of {field,label} per sport instead
+  // of a single field, and every player card renders one checkbox per entry.
+  const FLAT_STATS = { football: FOOTBALL_STATS, volleyball: VOLLEYBALL_STATS, basketball: BASKETBALL_STATS };
+  const POG_DEFS = {
+    football:   [{ field: 'opog', label: 'OPOG' }, { field: 'dpog', label: 'DPOG' }],
+    volleyball: [{ field: 'pog', label: 'POG' }],
+    basketball: []
+  };
+
+  /* ── Player objects ───────────────────────────────────────────────
+     Every player everywhere is the same shape: { id, name, number, stats }.
+     `id` is globally unique (state._nextId counter) so Player-of-the-Game
+     picks and the undo stack can reference a specific player regardless of
+     which array/section they live in — no more fragile parallel roster[]/
+     stats[] index arrays. */
+  function nextId() {
+    state._nextId = state._nextId || 1;
+    const id = state._nextId;
+    state._nextId += 1;
+    return id;
+  }
+  function emptyStatsFor(statDefs) {
+    const o = {};
+    statDefs.forEach(s => { o[s.key] = 0; });
+    return o;
+  }
+  function makePlayer(statDefs) {
+    return { id: nextId(), name: '', number: '', stats: emptyStatsFor(statDefs) };
+  }
+
+  function defaultFlatState(sport) {
+    const st = { teamName: SPORT_META[sport].defaultTeam, roster: [] };
+    const pogDefs = POG_DEFS[sport] || [];
+    if (pogDefs.length) {
+      st.pog = {};
+      pogDefs.forEach(d => { st.pog[d.field] = -1; });
+    }
+    return st;
+  }
+
+  const DEFAULT_STATE = {
+    football: defaultFlatState('football'),
+    volleyball: defaultFlatState('volleyball'),
+    basketball: defaultFlatState('basketball')
+  };
+
+  let state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+  state._nextId = 1;
+  state._schemaVersion = 3;
+  let activeTab = 'football';
+
+  // ── Load + one-time migration ────────────────────────────────────────
+  // schemaVersion 3 (2026-08-21): football moved from offense/defense/
+  // position-group sections to one flat roster, matching volleyball/
+  // basketball. Coming from schemaVersion 2, volleyball/basketball's shape
+  // is unchanged, so their whole per-sport state (roster + stats + pog)
+  // carries over intact. Football's old side/group arrays get flattened
+  // into one roster — a player found in more than one group (e.g. someone
+  // who played both sides) is deduped by number+name into a single card,
+  // and any stat key that still exists in the new schema (passYd, passTD,
+  // rushYd, rushTD, recYd, recTD, tackle, sack, int all kept their exact
+  // names) carries its value forward rather than resetting to 0; dropped
+  // keys (passAtt, passIncomp, rec, rushAtt — not in Bradley's new stat
+  // list) are simply discarded. OPOG/DPOG picks are re-pointed at the new
+  // flattened player id. Coming from an even older (pre-player-object)
+  // shape, only team names are safely recoverable and everyone re-adds
+  // their roster once — same fallback as the 2026-08-02 revamp used.
+  try {
+    const saved = JSON.parse(localStorage.getItem('rebel-stat-report'));
+    if (saved && saved._schemaVersion === 3) {
+      // Already on the newest schema (a reload after this revamp) — use as-is.
+      SPORTS.forEach(s => { if (saved[s]) state[s] = saved[s]; });
+      if (saved._nextId) state._nextId = saved._nextId;
+    } else if (saved && saved._schemaVersion === 2) {
+      ['volleyball', 'basketball'].forEach(sport => { if (saved[sport]) state[sport] = saved[sport]; });
+      if (saved._nextId) state._nextId = saved._nextId;
+      if (saved.football) {
+        if (saved.football.teamName) state.football.teamName = saved.football.teamName;
+        const oldPog = saved.football.pog || {};
+        const seen = new Map();
+        let newOpog = -1, newDpog = -1;
+        ['offense', 'defense'].forEach(sideKey => {
+          const sideObj = saved.football[sideKey];
+          if (!sideObj) return;
+          Object.keys(sideObj).forEach(groupKey => {
+            (sideObj[groupKey] || []).forEach(op => {
+              if (!op || (!op.name && !op.number)) return;
+              const dedupeKey = (op.number || '') + '|' + (op.name || '').trim().toLowerCase();
+              let np = seen.get(dedupeKey);
+              if (!np) {
+                np = makePlayer(FOOTBALL_STATS);
+                np.name = op.name || '';
+                np.number = op.number || '';
+                seen.set(dedupeKey, np);
+                state.football.roster.push(np);
+              }
+              if (op.stats) {
+                FOOTBALL_STATS.forEach(def => {
+                  if (op.stats[def.key] !== undefined) {
+                    np.stats[def.key] = (np.stats[def.key] || 0) + (op.stats[def.key] || 0);
+                  }
+                });
+              }
+              if (sideKey === 'offense' && oldPog.opog === op.id) newOpog = np.id;
+              if (sideKey === 'defense' && oldPog.dpog === op.id) newDpog = np.id;
+            });
+          });
+        });
+        state.football.pog = { opog: newOpog, dpog: newDpog };
+      }
+    } else if (saved) {
+      if (saved.football && saved.football.teamName) state.football.teamName = saved.football.teamName;
+      ['volleyball', 'basketball'].forEach(sport => {
+        if (saved[sport] && Array.isArray(saved[sport].roster)) {
+          if (saved[sport].teamName) state[sport].teamName = saved[sport].teamName;
+          state[sport].roster = saved[sport].roster
+            .filter(p => p && (p.name || p.number))
+            .map(p => {
+              const np = makePlayer(FLAT_STATS[sport]);
+              np.name = p.name || '';
+              np.number = p.number || '';
+              return np;
+            });
+        }
+      });
+    }
+  } catch (e) {}
+  state._updatedAt = 0;
+
+  const CHANNEL_KEY = 'rebel-stat-report';
+  const bc = new BroadcastChannel(CHANNEL_KEY);
+
+  // Every real edit stamps a fresh _updatedAt. This app can end up open in
+  // two places at once (e.g. the OBS "Stat Keeper" dock left open, plus
+  // someone actively tracking on an iPad) — each open instance broadcasts
+  // its own state every 2s regardless. Without any freshness signal,
+  // whichever instance's broadcast happened to arrive last "won" on the
+  // display graphic. Display graphics keep whichever incoming state has the
+  // newest _updatedAt and ignore anything older, so an idle/stale instance
+  // can never stomp the actively-edited one.
+  function persist() {
+    state._updatedAt = Date.now();
+    try { localStorage.setItem(CHANNEL_KEY, JSON.stringify(state)); } catch (e) {}
+    bc.postMessage(state);
+    publishState();
+  }
+
+  /* ── Pusher relay (2026-09-04 rearchitecture) ─────────────────────────
+     This page used to talk straight to obs-websocket (ws://<lan-ip>:4455)
+     so the OBS graphics could pick up state broadcast from here. That only
+     works when this page and OBS are on the same LAN, which is exactly the
+     "resync the iPad before every game" pain Bradley wanted gone. Now that
+     this app is a real hosted website, it POSTs the state to our own
+     Cloudflare Pages Function at /api/publish-stat, which holds the Pusher
+     app secret and triggers a Pusher event server-side (see
+     functions/api/publish-stat.js). The 5 OBS graphic files subscribe to
+     that same Pusher channel directly over the internet — OBS's browser
+     source already has internet access for streaming, so no LAN hop is
+     needed on that end either. localStorage/BroadcastChannel above are
+     kept as-is for same-device reload resilience; this block only replaces
+     how state reaches OBS. */
+  let publishInFlight = false, publishFailStreak = 0;
+  function publishState() {
+    if (publishInFlight) return;
+    publishInFlight = true;
+    fetch('/api/publish-stat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channel: CHANNEL_KEY, state })
+    }).then(res => {
+      publishInFlight = false;
+      if (!res.ok) throw new Error('publish failed: ' + res.status);
+      publishFailStreak = 0;
+      document.getElementById('conn-dot').classList.add('on');
+      document.getElementById('conn-text').textContent = 'Synced';
+    }).catch(() => {
+      publishInFlight = false;
+      publishFailStreak++;
+      document.getElementById('conn-dot').classList.remove('on');
+      document.getElementById('conn-text').textContent = publishFailStreak > 1 ? 'Sync trouble — check connection' : 'Syncing…';
+    });
+  }
+  publishState();
+  setInterval(publishState, 2000);
+
+  /* ── Undo stacks (in-memory only, not persisted/broadcast) ───────────
+     Covers stat-button taps and "+ Add Player" — the two actions someone
+     is likely to fat-finger mid-game. Text field edits and Player-of-the-
+     Game checkboxes aren't tracked (low risk, trivial to just redo). Each
+     sport gets its own stack, capped at 25 entries. */
+  const undoStacks = { football: [], volleyball: [], basketball: [] };
+  function pushUndo(sport, revert) {
+    const stack = undoStacks[sport];
+    stack.push(revert);
+    if (stack.length > 25) stack.shift();
+    updateUndoButton(sport);
+  }
+  function undo(sport) {
+    const stack = undoStacks[sport];
+    const revert = stack.pop();
+    if (!revert) return;
+    revert();
+    updateUndoButton(sport);
+    renderSportPanel(sport);
+    persist();
+  }
+  function updateUndoButton(sport) {
+    const btn = document.getElementById('undo-' + sport);
+    if (btn) btn.disabled = undoStacks[sport].length === 0;
+  }
+
+  /* ── Rendering ─────────────────────────────────────────────────────── */
+  function buildTabs() {
+    const wrap = document.getElementById('tabs');
+    wrap.innerHTML = '';
+    SPORTS.forEach(sport => {
+      const btn = document.createElement('button');
+      btn.className = 'tab-btn' + (sport === activeTab ? ' active' : '');
+      btn.textContent = SPORT_META[sport].icon + ' ' + SPORT_META[sport].label;
+      btn.onclick = () => { activeTab = sport; buildTabs(); renderPanels(); };
+      wrap.appendChild(btn);
+    });
+  }
+
+  function buildPanels() {
+    const wrap = document.getElementById('panels');
+    wrap.innerHTML = '';
+    SPORTS.forEach(sport => {
+      const panel = document.createElement('div');
+      panel.className = 'sport-panel';
+      panel.id = 'panel-' + sport;
+      panel.style.display = sport === activeTab ? '' : 'none';
+      panel.innerHTML =
+        '<div class="section-title">Team Name</div>' +
+        '<div class="team-name-row">' +
+          '<input type="text" id="team-name-' + sport + '" placeholder="' + SPORT_META[sport].defaultTeam + '">' +
+          '<button data-action="set-team" data-sport="' + sport + '">Set</button>' +
+        '</div>' +
+        '<div class="controls-row">' +
+          '<button class="undo-btn" id="undo-' + sport + '" data-action="undo" data-sport="' + sport + '" disabled>↩ Undo Last</button>' +
+        '</div>' +
+        '<div id="body-' + sport + '"></div>' +
+        '<div class="section-title">Team Totals</div>' +
+        '<div class="totals-grid" id="totals-' + sport + '"></div>' +
+        '<button class="reset-btn" data-action="reset" data-sport="' + sport + '">Reset ' + SPORT_META[sport].label + ' Stats</button>';
+      wrap.appendChild(panel);
+    });
+    wrap.addEventListener('click', handlePanelClick);
+    wrap.addEventListener('change', handlePanelChange);
+  }
+
+  function renderPanels() {
+    SPORTS.forEach(sport => {
+      document.getElementById('panel-' + sport).style.display = sport === activeTab ? '' : 'none';
+    });
+    SPORTS.forEach(sport => renderSportPanel(sport));
+  }
+
+  function renderSportPanel(sport) {
+    document.getElementById('team-name-' + sport).value = state[sport].teamName || '';
+    updateUndoButton(sport);
+    renderFlatBody(sport);
+    renderFlatTotals(sport);
+  }
+
+  /* ── Player cards (shared by every sport — one flat roster each) ──────── */
+  function renderPlayerCard(sport, p, statDefs) {
+    const pogDefs = POG_DEFS[sport] || [];
+    let pogHtml = '';
+    pogDefs.forEach(pd => {
+      pogHtml += '<label class="pog-chip">' + pd.label +
+        '<input type="checkbox" data-sport="' + sport + '" data-id="' + p.id + '" data-pog-field="' + pd.field + '"' +
+        (state[sport].pog && state[sport].pog[pd.field] === p.id ? ' checked' : '') + '>' +
+      '</label>';
+    });
+    let html =
+      '<div class="player-card">' +
+        '<div class="player-head">' +
+          '<input class="p-num" type="text" maxlength="3" value="' + (p.number || '') + '" data-sport="' + sport + '" data-id="' + p.id + '" data-field="number" placeholder="#">' +
+          '<input class="p-name" type="text" value="' + (p.name || '') + '" data-sport="' + sport + '" data-id="' + p.id + '" data-field="name" placeholder="Player name">' +
+          pogHtml +
+        '</div>' +
+        '<div class="stat-chip-row">';
+    statDefs.forEach(def => {
+      html += renderStatChip(sport, p, def);
+    });
+    html += '</div></div>';
+    return html;
+  }
+
+  function renderStatChip(sport, p, def) {
+    const val = p.stats[def.key] || 0;
+    const attrs = 'data-sport="' + sport + '" data-id="' + p.id + '" data-key="' + def.key + '"';
+    let btns = '';
+    if (def.type === 'add5') {
+      btns = '<button class="chip-btn" data-action="stat" ' + attrs + ' data-delta="1">+1</button>' +
+             '<button class="chip-btn" data-action="stat" ' + attrs + ' data-delta="5">+5</button>';
+    } else if (def.type === 'pts') {
+      btns = '<button class="chip-btn" data-action="stat" ' + attrs + ' data-delta="1">+1</button>' +
+             '<button class="chip-btn" data-action="stat" ' + attrs + ' data-delta="2">+2</button>' +
+             '<button class="chip-btn" data-action="stat" ' + attrs + ' data-delta="3">+3</button>';
+    } else {
+      btns = '<button class="chip-btn" data-action="stat" ' + attrs + ' data-delta="1">+1</button>';
+    }
+    // Football is the only sport with a -1 next to every +1 (Bradley's choice —
+    // volleyball/basketball keep their original buttons unchanged).
+    if (sport === 'football') {
+      btns += '<button class="chip-btn chip-btn-minus" data-action="stat" ' + attrs + ' data-delta="-1">-1</button>';
+    }
+    return '<div class="stat-chip"><span class="chip-label">' + def.label + '</span><span class="chip-count">' + val + '</span><div class="chip-btns">' + btns + '</div></div>';
+  }
+
+  /* ── Roster body / totals (every sport — one flat roster each) ────────── */
+  function renderFlatBody(sport) {
+    const wrap = document.getElementById('body-' + sport);
+    const statDefs = FLAT_STATS[sport];
+    let html = '<div class="section-title">Roster</div>';
+    state[sport].roster.forEach(p => { html += renderPlayerCard(sport, p, statDefs); });
+    html += '<button class="roster-add" data-action="add-player" data-sport="' + sport + '">+ Add Player</button>';
+    wrap.innerHTML = html;
+  }
+
+  function renderFlatTotals(sport) {
+    const wrap = document.getElementById('totals-' + sport);
+    wrap.innerHTML = '';
+    const statDefs = FLAT_STATS[sport];
+    const totals = emptyStatsFor(statDefs);
+    state[sport].roster.forEach(p => {
+      if (!p.name || !p.name.trim()) return;
+      statDefs.forEach(def => { totals[def.key] += p.stats[def.key] || 0; });
+    });
+    statDefs.forEach(def => {
+      const lab = document.createElement('div');
+      lab.className = 't-label';
+      lab.textContent = def.label;
+      const val = document.createElement('div');
+      val.className = 't-value';
+      val.textContent = totals[def.key];
+      wrap.appendChild(lab);
+      wrap.appendChild(val);
+    });
+  }
+
+  /* ── Shared helpers ────────────────────────────────────────────────── */
+  function findPlayer(sport, id) {
+    id = Number(id);
+    return state[sport].roster.find(p => p.id === id) || null;
+  }
+
+  /* ── Event handling ───────────────────────────────────────────────── */
+  let resetArmed = {};
+
+  function handlePanelClick(e) {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    const sport = btn.dataset.sport;
+
+    if (action === 'set-team') {
+      const input = document.getElementById('team-name-' + sport);
+      state[sport].teamName = input.value.trim() || SPORT_META[sport].defaultTeam;
+      persist();
+    } else if (action === 'add-player') {
+      const p = makePlayer(FLAT_STATS[sport]);
+      state[sport].roster.push(p);
+      pushUndo(sport, () => {
+        const arr = state[sport].roster;
+        const i = arr.findIndex(x => x.id === p.id);
+        if (i >= 0) arr.splice(i, 1);
+      });
+      renderFlatBody(sport);
+      renderFlatTotals(sport);
+      persist();
+    } else if (action === 'stat') {
+      const key = btn.dataset.key;
+      const delta = Number(btn.dataset.delta);
+      const player = findPlayer(sport, btn.dataset.id);
+      if (!player) return;
+      const prev = player.stats[key] || 0;
+      player.stats[key] = Math.max(0, prev + delta);
+      pushUndo(sport, () => { player.stats[key] = prev; });
+      renderFlatBody(sport);
+      renderFlatTotals(sport);
+      persist();
+    } else if (action === 'undo') {
+      undo(sport);
+    } else if (action === 'reset') {
+      if (resetArmed[sport]) {
+        const teamName = state[sport].teamName;
+        const roster = state[sport].roster.map(p => {
+          const np = makePlayer(FLAT_STATS[sport]);
+          np.name = p.name; np.number = p.number;
+          return np;
+        });
+        state[sport] = defaultFlatState(sport);
+        state[sport].teamName = teamName;
+        state[sport].roster = roster;
+        undoStacks[sport] = [];
+        resetArmed[sport] = false;
+        btn.textContent = 'Reset ' + SPORT_META[sport].label + ' Stats';
+        btn.classList.remove('confirm');
+        renderSportPanel(sport);
+        persist();
+      } else {
+        resetArmed[sport] = true;
+        btn.textContent = 'Click again to confirm';
+        btn.classList.add('confirm');
+        setTimeout(() => {
+          if (resetArmed[sport]) {
+            resetArmed[sport] = false;
+            btn.textContent = 'Reset ' + SPORT_META[sport].label + ' Stats';
+            btn.classList.remove('confirm');
+          }
+        }, 3000);
+      }
+    }
+  }
+
+  function handlePanelChange(e) {
+    const el = e.target;
+    if (!el.dataset) return;
+    const sport = el.dataset.sport;
+
+    if (el.dataset.pogField) {
+      const id = Number(el.dataset.id);
+      const field = el.dataset.pogField;
+      if (!state[sport].pog) state[sport].pog = {};
+      // Radio-button behavior: checking a player unchecks whichever other
+      // player previously held this honor (only one OPOG/DPOG/POG at a time).
+      state[sport].pog[field] = el.checked ? id : -1;
+      renderFlatBody(sport);
+      persist();
+      return;
+    }
+
+    if (!el.dataset.field) return;
+    const player = findPlayer(sport, el.dataset.id);
+    if (!player) return;
+    player[el.dataset.field] = el.value;
+    persist();
+  }
+
+  buildTabs();
+  buildPanels();
+  renderPanels();
+</script>
+</body>
+</html>

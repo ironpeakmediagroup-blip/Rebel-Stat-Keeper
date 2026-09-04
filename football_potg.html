@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Player of the Game</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="engine.css">
+  <style>
+    /* Full-screen Player of the Game reveal — its own dedicated OBS scene
+       (not a toggled overlay), replacing the old single-sponsor lower-third
+       (24_sabeytrucking_potg.html, left in place but orphaned). Split
+       horizontally: top half honors the Offensive Player of the Game
+       (Taylor G Graphics), bottom half the Defensive Player of the Game
+       (Sabey Trucking). Reuses engine.css's .hash-texture and .fs-sponsor
+       pieces for visual consistency with the rest of the package; the
+       show/hide entrance mirrors the .bar/.bar-wrap transition pattern
+       (transform+opacity transition toggled by adding/removing 'show'/'hide'
+       on #overlay-root, driven by the shared engine.js). */
+
+    #overlay-root.potg-wrap { position: absolute; inset: 0; overflow: hidden; background: #05070d; }
+
+    .potg-half {
+      position: absolute;
+      left: 0; right: 0;
+      height: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      overflow: hidden;
+    }
+
+    .potg-half::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, var(--accent) 0%, transparent 65%);
+      opacity: 0.16;
+      pointer-events: none;
+    }
+
+    .potg-half .hash-texture { background-color: rgba(6, 9, 18, 0.9); }
+
+    .potg-top { top: 0; transform: translateY(-70px); opacity: 0; transition: transform 0.6s cubic-bezier(0.16,1,0.3,1), opacity 0.4s ease; }
+    .potg-bottom { bottom: 0; transform: translateY(70px); opacity: 0; transition: transform 0.6s 0.1s cubic-bezier(0.16,1,0.3,1), opacity 0.4s 0.1s ease; }
+
+    .potg-wrap.show .potg-top { transform: translateY(0); opacity: 1; }
+    .potg-wrap.show .potg-bottom { transform: translateY(0); opacity: 1; }
+
+    .potg-wrap.hide .potg-top {
+      transform: translateY(-70px); opacity: 0;
+      transition: transform 0.4s cubic-bezier(0.55,0.06,0.68,0.19), opacity 0.3s ease;
+    }
+    .potg-wrap.hide .potg-bottom {
+      transform: translateY(70px); opacity: 0;
+      transition: transform 0.4s cubic-bezier(0.55,0.06,0.68,0.19), opacity 0.3s ease;
+    }
+
+    .potg-eyebrow {
+      position: relative;
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      color: var(--accent);
+      text-transform: uppercase;
+      opacity: 0;
+    }
+    .potg-wrap.show .potg-eyebrow { animation: fade-in 0.4s 0.35s ease forwards; }
+
+    .potg-playerrow {
+      position: relative;
+      display: flex;
+      align-items: baseline;
+      gap: 20px;
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    .potg-wrap.show .potg-playerrow { animation: fade-rise 0.5s 0.45s ease forwards; }
+
+    .potg-num {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 40px;
+      font-weight: 800;
+      color: #072a63;
+      background: #ffffff;
+      padding: 6px 18px;
+      border-radius: 10px;
+    }
+
+    .potg-name {
+      font-size: 68px;
+      font-weight: 900;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      text-shadow: 0 4px 18px rgba(0,0,0,0.6);
+      white-space: nowrap;
+    }
+
+    .potg-stats {
+      position: relative;
+      display: flex;
+      gap: 36px;
+      flex-wrap: wrap;
+      justify-content: center;
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    .potg-wrap.show .potg-stats { animation: fade-rise 0.5s 0.55s ease forwards; }
+
+    .potg-stat {
+      font-size: 20px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.8);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .potg-stat b {
+      font-family: 'Orbitron', sans-serif;
+      color: #fff;
+      font-weight: 800;
+      font-size: 27px;
+      margin-right: 7px;
+    }
+    .potg-stat-empty {
+      font-size: 18px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.35);
+    }
+
+    .potg-half .fs-sponsor {
+      position: relative;
+      opacity: 0;
+      transform: translateY(16px);
+      margin-top: 26px;
+      gap: 28px;
+    }
+    .potg-wrap.show .potg-half .fs-sponsor { animation: fade-rise 0.5s 0.68s ease forwards; }
+    .potg-half .fs-sponsor img { max-height: 112px; max-width: 250px; }
+    .potg-half .fs-sponsor-text .name-fs { font-size: 34px; }
+    .potg-half .fs-sponsor-text .eyebrow-fs { font-size: 17px; }
+
+    /* ── Center divider — just a thin line separating the two halves;
+       the Rebel logo badge and "Player of the Game" label that used to
+       sit on it were removed per Bradley's request. ── */
+    .potg-divider {
+      position: absolute;
+      top: 50%; left: 0; right: 0;
+      transform: translateY(-50%);
+      z-index: 5;
+      opacity: 0;
+    }
+    .potg-wrap.show .potg-divider { animation: fade-in 0.4s 0.15s ease forwards; }
+
+    .potg-divider-line {
+      position: absolute;
+      left: 0; right: 0; top: 50%;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5) 20%, rgba(255,255,255,0.5) 80%, transparent);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="overlay-root" class="potg-wrap">
+
+    <div class="potg-half potg-top" style="--accent:#0096e6; --accent-2:#004a73;">
+      <div class="hash-texture"></div>
+      <div class="potg-eyebrow">Offensive Player of the Game</div>
+      <div class="potg-playerrow">
+        <div class="potg-num" id="opog-num" style="display:none;"></div>
+        <div class="potg-name" id="opog-name">Not Yet Selected</div>
+      </div>
+      <div class="potg-stats" id="opog-stats"></div>
+      <div class="fs-sponsor">
+        <img src="../Taylor Graphics.png" alt="Taylor G Graphics">
+        <div class="fs-sponsor-text">
+          <div class="eyebrow-fs">Presented by</div>
+          <div class="name-fs">Taylor G Graphics</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="potg-divider">
+      <div class="potg-divider-line"></div>
+    </div>
+
+    <div class="potg-half potg-bottom" style="--accent:#1552a0; --accent-2:#33208c;">
+      <div class="hash-texture"></div>
+      <div class="potg-eyebrow">Defensive Player of the Game</div>
+      <div class="potg-playerrow">
+        <div class="potg-num" id="dpog-num" style="display:none;"></div>
+        <div class="potg-name" id="dpog-name">Not Yet Selected</div>
+      </div>
+      <div class="potg-stats" id="dpog-stats"></div>
+      <div class="fs-sponsor">
+        <img src="../Lutz Construction.webp" alt="Lutz Construction">
+        <div class="fs-sponsor-text">
+          <div class="eyebrow-fs">Presented by</div>
+          <div class="name-fs">Lutz Construction</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="engine.js"></script>
+  <script src="https://js.pusher.com/8.4/pusher.min.js"></script>
+  <script>
+    // Live player + stats, fed by stat_keeper.html's football tab over the
+    // same obs-websocket BroadcastCustomEvent relay used by the scoreboards
+    // and the Stats Report / Keys to Victory scenes (docks/sources don't
+    // share localStorage — see project memory).
+    const STAT_LABELS = {
+      passYd: 'Passing Yds', passTD: 'Passing TDs',
+      rushYd: 'Rushing Yds', rushTD: 'Rushing TDs',
+      recYd: 'Receiving Yds', recTD: 'Receiving TDs',
+      tackle: 'Tackles', sack: 'Sacks', int: 'INTs', fumForced: 'Forced Fumbles'
+    };
+    // Offense excludes "int" (INTs thrown) — that's a turnover, not a
+    // highlight stat for the Offensive Player of the Game honor. Stat
+    // Keeper's 2026-08-21 revamp put every stat on every player's card (one
+    // flat roster, no more offense/defense split) — OPOG/DPOG are just two
+    // independent honors on that shared roster now; each half still only
+    // surfaces the offense- or defense-relevant subset of that player's stats.
+    const OFFENSE_KEYS = ['passYd', 'passTD', 'rushYd', 'rushTD', 'recYd', 'recTD'];
+    const DEFENSE_KEYS = ['tackle', 'sack', 'int', 'fumForced'];
+
+    // Stat Keeper (2026-08-21 revamp) is a flat roster — look a Player of
+    // the Game pick up directly by id, no more per-side group search.
+    function findPlayer(roster, id) {
+      if (id == null || id < 0) return null;
+      return (roster || []).find(p => p.id === id) || null;
+    }
+
+    function renderHalf(field, keys, sportState) {
+      const pog = sportState.pog || {};
+      const id = typeof pog[field] === 'number' ? pog[field] : -1;
+      const player = findPlayer(sportState.roster, id);
+      const stats = (player && player.stats) || {};
+
+      const nameEl = document.getElementById(field + '-name');
+      const numEl = document.getElementById(field + '-num');
+      const statsEl = document.getElementById(field + '-stats');
+
+      if (player && player.name && player.name.trim()) {
+        nameEl.textContent = player.name.toUpperCase();
+        if (player.number) {
+          numEl.textContent = '#' + player.number;
+          numEl.style.display = '';
+        } else {
+          numEl.style.display = 'none';
+        }
+      } else {
+        nameEl.textContent = 'Not Yet Selected';
+        numEl.style.display = 'none';
+      }
+
+      statsEl.innerHTML = '';
+      let any = false;
+      keys.forEach(key => {
+        const v = stats[key] || 0;
+        if (v > 0) {
+          any = true;
+          const el = document.createElement('div');
+          el.className = 'potg-stat';
+          el.innerHTML = '<b>' + v + '</b>' + STAT_LABELS[key];
+          statsEl.appendChild(el);
+        }
+      });
+      if (!any) {
+        statsEl.innerHTML = '<div class="potg-stat-empty">No stats recorded yet</div>';
+      }
+    }
+
+    function renderPOTG(fullState) {
+      const football = (fullState && fullState.football) || { roster: [], pog: {} };
+      renderHalf('opog', OFFENSE_KEYS, football);
+      renderHalf('dpog', DEFENSE_KEYS, football);
+    }
+
+    // Stat Keeper can be open in more than one place at once — every real
+    // edit stamps a fresh _updatedAt, and we keep whichever incoming state
+    // is newest so an idle/stale instance can never stomp the active one.
+    let lastAppliedUpdatedAt = 0;
+    function applyIncoming(fullState) {
+      const ts = (fullState && fullState._updatedAt) || 0;
+      if (ts < lastAppliedUpdatedAt) return;
+      lastAppliedUpdatedAt = ts;
+      renderPOTG(fullState);
+    }
+
+    let statState = null;
+    try {
+      const saved = JSON.parse(localStorage.getItem('rebel-stat-report'));
+      if (saved) statState = saved;
+    } catch (e) {}
+    if (statState) lastAppliedUpdatedAt = statState._updatedAt || 0;
+    renderPOTG(statState);
+
+    const statBC = new BroadcastChannel('rebel-stat-report');
+    statBC.onmessage = (e) => { applyIncoming(e.data); };
+
+    /* ── Pusher relay (2026-09-04 rearchitecture) ─────────────────────
+       Replaces the old obs-websocket relay (ws://127.0.0.1:4455), which
+       only worked when stat_keeper.html and OBS were on the same LAN.
+       stat_keeper.html is now a hosted website that POSTs state to a
+       Cloudflare Pages Function, which triggers this Pusher event
+       server-side. OBS's browser source has internet access already (it's
+       already streaming), so this scene just subscribes directly — no LAN
+       hop needed. Key/cluster are duplicated per file on purpose, same as
+       every other constant in this build (see stat_keeper_build.md). */
+    const PUSHER_KEY = '07bf6d5184f7c6971a1c';
+    const PUSHER_CLUSTER = 'us3';
+    const PUSHER_CHANNEL = 'rebel-stat-report';
+    const PUSHER_EVENT = 'state-update';
+    (function connectStatRelay() {
+      const pusher = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
+      const channel = pusher.subscribe(PUSHER_CHANNEL);
+      channel.bind(PUSHER_EVENT, (data) => {
+        if (data && data.state) applyIncoming(data.state);
+      });
+    })();
+  </script>
+</body>
+</html>

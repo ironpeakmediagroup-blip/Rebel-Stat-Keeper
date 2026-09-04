@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Rich Rebels Basketball — Live Stat Report</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: transparent; }
+
+  #stat-panel {
+    position: absolute;
+    top: 70px; left: 50%;
+    transform: translate(-50%, -16px);
+    width: 980px;
+    opacity: 0;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    font-family: 'Montserrat', 'Arial Black', sans-serif;
+    filter: drop-shadow(0 14px 40px rgba(0,0,0,0.6));
+  }
+  #stat-panel.show { opacity: 1; transform: translate(-50%, 0); }
+
+  .stat-card {
+    position: relative;
+    background: linear-gradient(160deg, rgba(9,16,32,0.96), rgba(5,9,20,0.98));
+    border: 1px solid rgba(150,190,255,0.22);
+    border-radius: 14px;
+    padding: 20px 26px 22px;
+    overflow: hidden;
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 5px;
+    background: linear-gradient(90deg, #1a3fc4, #ffffff 50%, #6b21a8);
+  }
+  .stat-card-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    border-bottom: 1px solid rgba(150,190,255,0.2);
+    padding-bottom: 10px; margin-bottom: 14px;
+  }
+  .stat-card-title { font-size: 24px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 0.03em; }
+  .stat-card-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: 0.18em; color: #90adf0; text-transform: uppercase; margin-bottom: 3px; }
+  .stat-card-team { font-size: 14px; font-weight: 800; color: #90adf0; text-transform: uppercase; letter-spacing: 0.1em; }
+
+  .leader-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 14px; }
+  .leader-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(150,190,255,0.18);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .leader-cat { font-size: 10px; font-weight: 800; letter-spacing: 0.12em; color: #90adf0; text-transform: uppercase; margin-bottom: 4px; }
+  .leader-name { font-size: 14px; font-weight: 800; color: #fff; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .leader-val { font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 800; color: #fff; }
+  .leader-empty { font-size: 12px; color: rgba(255,255,255,0.3); font-weight: 600; }
+
+  .totals-strip { display: flex; gap: 18px; flex-wrap: wrap; }
+  .totals-strip .t { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.65); }
+  .totals-strip .t b { font-family: 'Orbitron', sans-serif; color: #fff; font-weight: 800; margin-right: 4px; }
+</style>
+</head>
+<body>
+
+  <div id="stat-panel">
+    <div class="stat-card">
+      <div class="stat-card-head">
+        <div>
+          <div class="stat-card-eyebrow">Rich Rebels Basketball</div>
+          <div class="stat-card-title">Stat Report</div>
+        </div>
+        <div class="stat-card-team" id="stat-team">RICH REBELS</div>
+      </div>
+      <div class="leader-grid" id="leader-grid"></div>
+      <div class="totals-strip" id="totals-strip"></div>
+    </div>
+  </div>
+
+  <script src="https://js.pusher.com/8.4/pusher.min.js"></script>
+  <script>
+    // Stat Keeper (2026-08-02 revamp): "points" is now a direct raw counter
+    // (tapped +1/+2/+3 per made basket) instead of being computed from
+    // separate 2PT/3PT/FT makes, rebounds split into Off./Def., and fouls
+    // were dropped from the tracked stat set. Roster is a flat array of
+    // player objects ({id, name, number, stats}) — stats live on the
+    // player, no more parallel stats[] array indexed alongside roster[].
+    const LEADER_CATEGORIES = [
+      { key: 'points', label: 'Points' },
+      { key: 'oreb',   label: 'Off. Rebounds' },
+      { key: 'dreb',   label: 'Def. Rebounds' },
+      { key: 'ast',    label: 'Assists' },
+      { key: 'stl',    label: 'Steals' }
+    ];
+    const TOTAL_KEYS = [
+      { key: 'points', label: 'Points' },
+      { key: 'oreb',   label: 'Off. Reb' },
+      { key: 'dreb',   label: 'Def. Reb' },
+      { key: 'ast',    label: 'Assists' },
+      { key: 'stl',    label: 'Steals' },
+      { key: 'blk',    label: 'Blocks' },
+      { key: 'to',     label: 'Turnovers' }
+    ];
+
+    function computeLeader(sport, key) {
+      let best = null;
+      (sport.roster || []).forEach(p => {
+        if (!p || !p.name || !p.name.trim()) return;
+        const val = (p.stats && p.stats[key]) || 0;
+        if (val > 0 && (!best || val > best.val)) best = { name: p.name, number: p.number, val };
+      });
+      return best;
+    }
+
+    function computeTeamTotal(sport, key) {
+      let total = 0;
+      (sport.roster || []).forEach(p => {
+        if (!p || !p.name || !p.name.trim()) return;
+        total += (p.stats && p.stats[key]) || 0;
+      });
+      return total;
+    }
+
+    function renderStatReport(fullState) {
+      const sport = (fullState && fullState.basketball) || { roster: [], stats: [] };
+      document.getElementById('stat-team').textContent = (sport.teamName || 'Rich Rebels').toUpperCase();
+
+      const grid = document.getElementById('leader-grid');
+      grid.innerHTML = '';
+      LEADER_CATEGORIES.forEach(cat => {
+        const leader = computeLeader(sport, cat.key);
+        const card = document.createElement('div');
+        card.className = 'leader-card';
+        if (leader) {
+          card.innerHTML =
+            '<div class="leader-cat">' + cat.label + ' Leader</div>' +
+            '<div class="leader-name">' + (leader.number ? '#' + leader.number + ' ' : '') + leader.name + '</div>' +
+            '<div class="leader-val">' + leader.val + '</div>';
+        } else {
+          card.innerHTML = '<div class="leader-cat">' + cat.label + ' Leader</div><div class="leader-empty">No stats yet</div>';
+        }
+        grid.appendChild(card);
+      });
+
+      const strip = document.getElementById('totals-strip');
+      strip.innerHTML = '';
+      TOTAL_KEYS.forEach(t => {
+        const el = document.createElement('div');
+        el.className = 't';
+        el.innerHTML = '<b>' + computeTeamTotal(sport, t.key) + '</b>' + t.label;
+        strip.appendChild(el);
+      });
+    }
+
+    // Ignore stale/older broadcasts from an idle second instance of Stat
+    // Keeper (e.g. the OBS dock left open while stats are tracked on an
+    // iPad) — see stat_keeper.html's persist() and project memory.
+    let lastAppliedUpdatedAt = 0;
+    function applyIncoming(fullState) {
+      const ts = (fullState && fullState._updatedAt) || 0;
+      if (ts < lastAppliedUpdatedAt) return;
+      lastAppliedUpdatedAt = ts;
+      renderStatReport(fullState);
+    }
+
+    let statState = null;
+    try {
+      const saved = JSON.parse(localStorage.getItem('rebel-stat-report'));
+      if (saved) statState = saved;
+    } catch (e) {}
+    if (statState) lastAppliedUpdatedAt = statState._updatedAt || 0;
+    renderStatReport(statState);
+
+    const statBC = new BroadcastChannel('rebel-stat-report');
+    statBC.onmessage = (e) => { applyIncoming(e.data); };
+
+    /* ── Pusher relay (2026-09-04 rearchitecture) ─────────────────────
+       Replaces the old obs-websocket relay (ws://127.0.0.1:4455), which
+       only worked when stat_keeper.html and OBS were on the same LAN.
+       stat_keeper.html is now a hosted website that POSTs state to a
+       Cloudflare Pages Function, which triggers this Pusher event
+       server-side. OBS's browser source has internet access already (it's
+       already streaming), so this scene just subscribes directly — no LAN
+       hop needed. Key/cluster are duplicated per file on purpose, same as
+       every other constant in this build (see stat_keeper_build.md). */
+    const PUSHER_KEY = '07bf6d5184f7c6971a1c';
+    const PUSHER_CLUSTER = 'us3';
+    const PUSHER_CHANNEL = 'rebel-stat-report';
+    const PUSHER_EVENT = 'state-update';
+    (function connectStatRelay() {
+      const pusher = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
+      const channel = pusher.subscribe(PUSHER_CHANNEL);
+      channel.bind(PUSHER_EVENT, (data) => {
+        if (data && data.state) applyIncoming(data.state);
+      });
+    })();
+
+    const panel = document.getElementById('stat-panel');
+    if (window.obsstudio) {
+      window.obsstudio.onVisibilityChange = (v) => { panel.classList.toggle('show', v); };
+      window.addEventListener('load', () => { panel.classList.add('show'); });
+    } else {
+      setTimeout(() => panel.classList.add('show'), 200);
+    }
+  </script>
+</body>
+</html>
