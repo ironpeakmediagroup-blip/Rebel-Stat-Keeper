@@ -1,0 +1,9 @@
+{
+  "name": "rebel-stat-keeper",
+  "compatibility_date": "2026-09-04",
+  "main": "worker.js",
+  "assets": {
+    "directory": "./",
+    "binding": "ASSETS"
+  }
+}
