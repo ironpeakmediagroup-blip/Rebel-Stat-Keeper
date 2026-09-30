@@ -234,7 +234,9 @@
   <div class="conn-status"><span class="conn-dot" id="conn-dot"></span><span id="conn-text">Connecting…</span></div>
 
 <script>
-  const SPORTS = ['football', 'volleyball', 'basketball'];
+  // 2026-09-29: football moved to its own app (football_stats.html, the
+  // play-by-play tracker). This app now covers volleyball + basketball only.
+  const SPORTS = ['volleyball', 'basketball'];
   const SPORT_META = {
     football:   { icon: '🏈', label: 'Football',   defaultTeam: 'Rebels' },
     volleyball: { icon: '🏐', label: 'Volleyball',  defaultTeam: 'Rebels' },
@@ -336,7 +338,7 @@
   let state = JSON.parse(JSON.stringify(DEFAULT_STATE));
   state._nextId = 1;
   state._schemaVersion = 3;
-  let activeTab = 'football';
+  let activeTab = 'volleyball';
 
   // ── Load + one-time migration ────────────────────────────────────────
   // schemaVersion 3 (2026-08-21): football moved from offense/defense/
