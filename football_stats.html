@@ -106,6 +106,9 @@
   .big.run { background: color-mix(in srgb, var(--run) 20%, var(--surface-2)); border-color: var(--run); }
   .big.pass { background: color-mix(in srgb, var(--pass) 20%, var(--surface-2)); border-color: var(--pass); }
   .big.def { background: color-mix(in srgb, var(--def) 20%, var(--surface-2)); border-color: var(--def); }
+  .big.st { background: color-mix(in srgb, var(--gold) 16%, var(--surface-2)); border-color: var(--gold); }
+  .crumb.t-st { background: color-mix(in srgb, var(--gold) 22%, transparent); }
+  .log .dot.st { background: var(--gold); }
   .mid { min-height: 84px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); font-family: var(--display); font-weight: 700; font-size: 24px; text-transform: uppercase; }
   .mid.warn { border-color: var(--loss); }
   .mid.bad { border-color: var(--def); }
@@ -249,7 +252,7 @@
 <div id="view-roster" class="main" hidden>
   <section class="panel wide">
     <h2>Roster</h2>
-    <p class="hint">One player per line: <b>number, name, position</b>. For two-way players list both positions with a slash, like <b>RB/LB</b>. The flow uses QB and RB for runs, RB, WR and TE for catches, and everyone for defense. Anyone can still be picked through “Other…”.</p>
+    <p class="hint">One player per line: <b>number, name, position</b>. For two-way players list both positions with a slash, like <b>RB/LB</b>. The flow uses QB and RB for runs, RB, WR and TE for catches, QB, RB and WR for kick and punt returns, and everyone for defense. Anyone can still be picked through “Other…”.</p>
     <textarea id="roster-text" spellcheck="false" aria-label="Roster" placeholder="7, Cade Johnson, QB&#10;22, Tanner Hollings, RB/LB&#10;81, Brigham Wood, WR"></textarea>
     <div class="roster-actions">
       <button class="apply" id="roster-apply">Save roster</button>
@@ -308,7 +311,10 @@
   const label = (n) => { const p = byNum(n); return p ? '#' + p.n + ' ' + shortName(p.name) : '#' + n; };
   const has = (p, list) => p.pos.some(x => list.includes(x));
   const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const DEF_KINDS = { tackle: 'Tackle', sack: 'Sack', int: 'Interception', ff: 'Forced Fumble' };
+  const DEF_KINDS = { solo: 'Solo Tackle', ast: 'Assisted Tackle', sack: 'Sack', int: 'Interception', ff: 'Forced Fumble' };
+  // Plays logged before 2026-10-04 used kind 'tackle' (one player = solo, several = assisted).
+  const defName = (k) => DEF_KINDS[k] || (k === 'tackle' ? 'Tackle' : k);
+  const ST_KINDS = { kr: 'Kick Return', pr: 'Punt Return' };
 
   // ── Selects: QB + Player of the Game ────────────────────────────────
   function optionList(primary, rest, restLabel) {
@@ -343,18 +349,18 @@
   function cancel() { draft = null; step = 'idle'; renderFlow(); }
   function back() {
     const prev = {
-      type: 'idle', runner: 'type', outcome: 'type', receiver: 'outcome', defkind: 'type', defplayers: 'defkind',
-      yards: draft && draft.type === 'run' ? 'runner' : (draft && draft.result === 'sack' ? 'outcome' : 'receiver')
+      type: 'idle', runner: 'type', outcome: 'type', receiver: 'outcome', defkind: 'type', defplayers: 'defkind', stkind: 'type', returner: 'stkind',
+      yards: draft && draft.type === 'run' ? 'runner' : draft && draft.type === 'st' ? 'returner' : (draft && draft.result === 'sack' ? 'outcome' : 'receiver')
     }[step];
     openTens = null;
-    if ((step === 'runner' || step === 'receiver') && draft.showAll) { draft.showAll = false; return renderFlow(); }
+    if ((step === 'runner' || step === 'receiver' || step === 'returner') && draft.showAll) { draft.showAll = false; return renderFlow(); }
     if (prev === 'idle') return cancel();
     step = prev; renderFlow();
   }
   function crumbs() {
     if (!draft) return '';
     const c = [], t = draft.type;
-    if (t) c.push(`<span class="crumb t-${t}">${{ run: 'Run', pass: 'Pass', def: 'Defense' }[t]}</span>`);
+    if (t) c.push(`<span class="crumb t-${t}">${{ run: 'Run', pass: 'Pass', def: 'Defense', st: 'Special Teams' }[t]}</span>`);
     if (t === 'run' && draft.runner != null) c.push(`<span class="crumb">${esc(label(draft.runner))}</span>`);
     if (t === 'pass') {
       c.push(`<span class="crumb">QB ${qb == null ? '—' : esc(label(qb))}</span>`);
@@ -362,6 +368,8 @@
       if (draft.rec != null) c.push(`<span class="crumb">to ${esc(label(draft.rec))}</span>`);
     }
     if (t === 'def' && draft.kind) c.push(`<span class="crumb">${DEF_KINDS[draft.kind]}</span>`);
+    if (t === 'st' && draft.kind) c.push(`<span class="crumb">${ST_KINDS[draft.kind]}</span>`);
+    if (t === 'st' && draft.returner != null) c.push(`<span class="crumb">${esc(label(draft.returner))}</span>`);
     return c.join('');
   }
   function playerButtons(list, withOther) {
@@ -379,10 +387,11 @@
     let body = '';
     if (step === 'type') {
       body = `<h3 class="step-title">What happened?</h3>
-        <div class="grid g3">
+        <div class="grid g4">
           <button class="big run" data-type="run">Run</button>
           <button class="big pass" data-type="pass">Pass</button>
           <button class="big def" data-type="def">Defense</button>
+          <button class="big st" data-type="st">Special<br>Teams</button>
         </div>`;
     } else if (step === 'runner') {
       let list = draft.showAll ? roster : roster.filter(p => has(p, ['QB', 'RB']));
@@ -402,16 +411,23 @@
       body = `<h3 class="step-title">Who caught it?</h3>` + playerButtons(list, !draft.showAll && list !== roster);
     } else if (step === 'defkind') {
       body = `<h3 class="step-title">Defensive play</h3>
-        <div class="grid g4">${Object.entries(DEF_KINDS).map(([k, v]) => `<button class="mid" data-kind="${k}">${v}</button>`).join('')}</div>`;
+        <div class="grid g3">${Object.entries(DEF_KINDS).map(([k, v]) => `<button class="mid" data-kind="${k}">${v}</button>`).join('')}</div>`;
+    } else if (step === 'stkind') {
+      body = `<h3 class="step-title">Special teams</h3>
+        <div class="grid g3">${Object.entries(ST_KINDS).map(([k, v]) => `<button class="mid" data-stkind="${k}">${v}</button>`).join('')}</div>`;
+    } else if (step === 'returner') {
+      let list = draft.showAll ? roster : roster.filter(p => has(p, ['QB', 'RB', 'WR']));
+      if (!list.length) list = roster;
+      body = `<h3 class="step-title">Who returned it?</h3>` + playerButtons(list, !draft.showAll && list !== roster);
     } else if (step === 'defplayers') {
       const order = ['DL', 'LB', 'DB'];
       const rank = (p) => Math.min(9, ...p.pos.map(x => { const j = order.indexOf(x); return j < 0 ? 9 : j; }));
       const list = roster.slice().sort((a, b) => rank(a) - rank(b) || a.n - b.n);
-      const multi = draft.kind === 'tackle';
-      body = `<h3 class="step-title">${multi ? 'Who made the tackle?' : 'Who made the ' + DEF_KINDS[draft.kind].toLowerCase() + '?'}</h3>` +
-        (multi ? `<p class="hint" style="margin-top:-6px">Tap one player, or several for a gang tackle, then save.</p>` : '') +
+      const multi = draft.kind === 'ast';
+      body = `<h3 class="step-title">${multi ? 'Who was in on the tackle?' : 'Who made the ' + DEF_KINDS[draft.kind].toLowerCase() + '?'}</h3>` +
+        (multi ? `<p class="hint" style="margin-top:-6px">Tap every player who was in on it, then save. Each gets an assisted tackle.</p>` : '') +
         playerButtons(list, false) +
-        (multi ? `<div class="save-row"><button class="primary" id="save-tackle" ${tacklers.length ? '' : 'disabled'}>Save tackle${tacklers.length > 1 ? ' (' + tacklers.length + ' players)' : ''}</button></div>` : '');
+        (multi ? `<div class="save-row"><button class="primary" id="save-tackle" ${tacklers.length ? '' : 'disabled'}>Save assisted tackle${tacklers.length > 1 ? ' (' + tacklers.length + ' players)' : ''}</button></div>` : '');
     } else if (step === 'yards') {
       body = yardsScreen();
     }
@@ -424,7 +440,7 @@
   function ydBtn(y) { return `<button class="yd${y < 0 ? ' loss' : ''}" data-yds="${y}">${y}</button>`; }
   function yardsScreen() {
     const sack = draft.result === 'sack';
-    let html = `<h3 class="step-title">${sack ? 'Yards lost on the sack' : 'How many yards?'}</h3>`;
+    let html = `<h3 class="step-title">${sack ? 'Yards lost on the sack' : draft.type === 'st' ? 'Return yards' : 'How many yards?'}</h3>`;
     if (sack) return html + `<div class="grid g5">${ydBtn(0)}${range(1, 14).map(y => ydBtn(-y)).join('')}</div>`;
     html += `<button class="td-toggle" id="td-toggle" aria-pressed="${draft.td ? 'true' : 'false'}">${draft.td ? '✓ Touchdown' : 'Touchdown?'}</button>`;
     html += `<div class="grid g5">${range(0, 9).map(ydBtn).join('')}</div><div class="sub">Longer gains</div><div class="grid g5">`;
@@ -438,7 +454,7 @@
     const f = $('flow');
     f.querySelectorAll('[data-type]').forEach(b => b.onclick = () => {
       draft.type = b.dataset.type;
-      step = { run: 'runner', pass: 'outcome', def: 'defkind' }[draft.type]; renderFlow();
+      step = { run: 'runner', pass: 'outcome', def: 'defkind', st: 'stkind' }[draft.type]; renderFlow();
     });
     f.querySelectorAll('[data-result]').forEach(b => b.onclick = () => {
       if (qb == null) return;
@@ -448,13 +464,15 @@
       else commit();
     });
     f.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => { draft.kind = b.dataset.kind; tacklers = []; step = 'defplayers'; renderFlow(); });
+    f.querySelectorAll('[data-stkind]').forEach(b => b.onclick = () => { draft.kind = b.dataset.stkind; draft.showAll = false; step = 'returner'; renderFlow(); });
     f.querySelectorAll('[data-other]').forEach(b => b.onclick = () => { draft.showAll = true; renderFlow(); });
     f.querySelectorAll('[data-player]').forEach(b => b.onclick = () => {
       const n = Number(b.dataset.player);
       if (step === 'runner') { draft.runner = n; step = 'yards'; openTens = null; renderFlow(); }
       else if (step === 'receiver') { draft.rec = n; step = 'yards'; openTens = null; renderFlow(); }
+      else if (step === 'returner') { draft.returner = n; step = 'yards'; openTens = null; renderFlow(); }
       else if (step === 'defplayers') {
-        if (draft.kind === 'tackle') { tacklers = tacklers.includes(n) ? tacklers.filter(x => x !== n) : tacklers.concat(n); renderFlow(); }
+        if (draft.kind === 'ast') { tacklers = tacklers.includes(n) ? tacklers.filter(x => x !== n) : tacklers.concat(n); renderFlow(); }
         else { draft.players = [n]; commit(); }
       }
     });
@@ -475,6 +493,7 @@
       if (draft.result === 'sack') p.yds = draft.yds;
     }
     if (p.type === 'def') Object.assign(p, { kind: draft.kind, players: draft.players });
+    if (p.type === 'st') Object.assign(p, { kind: draft.kind, returner: draft.returner, yds: draft.yds, td: !!draft.td });
     plays.push(p); save();
     draft = null; step = 'idle';
     renderAll();
@@ -490,7 +509,8 @@
       if (p.result === 'int') return `<b>${q}</b> pass intercepted`;
       return `<b>${q}</b> sacked, ${yd(p.yds)}`;
     }
-    return `${DEF_KINDS[p.kind]}: <b>${p.players.map(n => esc(label(n))).join(' + ')}</b>`;
+    if (p.type === 'st') return `<b>${esc(label(p.returner))}</b> ${ST_KINDS[p.kind].toLowerCase()}, ${yd(p.yds)}` + (p.td ? '<span class="td">TD</span>' : '');
+    return `${defName(p.kind)}: <b>${p.players.map(n => esc(label(n))).join(' + ')}</b>`;
   }
 
   // ── Stats (always recomputed from the play log) ─────────────────────
@@ -498,7 +518,7 @@
   // match what the Player of the Game graphic already reads.
   function computeStats() {
     const s = {};
-    const get = (n) => s[n] || (s[n] = { att: 0, comp: 0, passYd: 0, passTD: 0, intThrown: 0, long: 0, car: 0, rushYd: 0, rushTD: 0, rec: 0, recYd: 0, recTD: 0, tackle: 0, sack: 0, int: 0, fumForced: 0 });
+    const get = (n) => s[n] || (s[n] = { att: 0, comp: 0, passYd: 0, passTD: 0, intThrown: 0, long: 0, car: 0, rushYd: 0, rushTD: 0, rec: 0, recYd: 0, recTD: 0, tackle: 0, soloTkl: 0, astTkl: 0, sack: 0, int: 0, fumForced: 0, kr: 0, krYd: 0, krTD: 0, pr: 0, prYd: 0, prTD: 0, retLong: 0 });
     plays.forEach(p => {
       if (p.type === 'run') { const r = get(p.runner); r.car++; r.rushYd += p.yds; if (p.td) r.rushTD++; }
       if (p.type === 'pass') {
@@ -508,7 +528,18 @@
         if (p.result === 'comp') { q.comp++; q.passYd += p.yds; q.long = Math.max(q.long, p.yds); if (p.td) q.passTD++; const r = get(p.rec); r.rec++; r.recYd += p.yds; if (p.td) r.recTD++; }
         if (p.result === 'int') q.intThrown++;
       }
-      if (p.type === 'def') p.players.forEach(n => { get(n)[p.kind === 'ff' ? 'fumForced' : p.kind]++; });
+      if (p.type === 'def') {
+        // tackle = solo + assisted (the Stats Report / POTG graphics read tackle)
+        let kind = p.kind;
+        if (kind === 'tackle') kind = p.players.length > 1 ? 'ast' : 'solo';
+        p.players.forEach(n => {
+          const x = get(n);
+          if (kind === 'solo') { x.soloTkl++; x.tackle++; }
+          else if (kind === 'ast') { x.astTkl++; x.tackle++; }
+          else x[kind === 'ff' ? 'fumForced' : kind]++;
+        });
+      }
+      if (p.type === 'st') { const r = get(p.returner), k = p.kind; r[k]++; r[k + 'Yd'] += p.yds; if (p.td) r[k + 'TD']++; r.retLong = Math.max(r.retLong, p.yds); }
     });
     return s;
   }
@@ -526,7 +557,8 @@
       table('Passing', [['C/Att', x => x.comp + '/' + x.att], ['Yds', x => x.passYd], ['TD', x => x.passTD], ['INT', x => x.intThrown], ['Long', x => x.long]], x => x.att > 0, 'passYd') +
       table('Rushing', [['Car', x => x.car], ['Yds', x => x.rushYd], ['Avg', x => x.car ? (x.rushYd / x.car).toFixed(1) : '0.0'], ['TD', x => x.rushTD]], x => x.car > 0, 'rushYd') +
       table('Receiving', [['Rec', x => x.rec], ['Yds', x => x.recYd], ['TD', x => x.recTD]], x => x.rec > 0, 'recYd') +
-      table('Defense', [['Tkl', x => x.tackle], ['Sack', x => x.sack], ['INT', x => x.int], ['FF', x => x.fumForced]], x => x.tackle + x.sack + x.int + x.fumForced > 0, 'tackle');
+      table('Defense', [['Solo', x => x.soloTkl], ['Ast', x => x.astTkl], ['Tot', x => x.tackle], ['Sack', x => x.sack], ['INT', x => x.int], ['FF', x => x.fumForced]], x => x.tackle + x.sack + x.int + x.fumForced > 0, 'tackle') +
+      table('Special Teams', [['KR', x => x.kr], ['KR Yds', x => x.krYd], ['PR', x => x.pr], ['PR Yds', x => x.prYd], ['Total', x => x.krYd + x.prYd], ['Long', x => x.retLong], ['TD', x => x.krTD + x.prTD]], x => x.kr + x.pr > 0, 'krYd');
     $('stats').innerHTML = html || '<p class="empty">Stats appear here as you add plays.</p>';
   }
   function renderLog() {
