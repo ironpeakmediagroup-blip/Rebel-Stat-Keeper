@@ -256,15 +256,41 @@
   .log .dot.g { background: var(--run); } .log .dot.b { background: var(--pass); } .log .dot.y { background: var(--gold); } .log .dot.o { background: var(--loss); } .log .dot.p { background: var(--vb-p); } .log .dot.r { background: var(--def); }
   .sbox { font-size: clamp(18px, 2.5vw, 30px); text-align: center; line-height: 1.05; padding: 6px; }
   tr.tot td { font-weight: 800; border-bottom: 0; color: var(--muted); }
+
+  /* ── Share (2026-10-07) ── */
+  .share-btn { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; font-weight: 700; font-size: 14px; min-height: 44px; display: inline-flex; align-items: center; gap: 8px; }
+  .share-btn svg { width: 18px; height: 18px; }
+  .top-actions { margin-left: auto; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 10px; }
+  .top-actions .tabs { margin-left: 0; }
+  .sheet-back { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.6); display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; padding: calc(20px + env(safe-area-inset-top, 0px)) 16px calc(20px + env(safe-area-inset-bottom, 0px)); }
+  .sheet { width: 100%; max-width: 440px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.55); }
+  .sheet h2 { font-family: var(--display); font-weight: 800; font-size: 26px; text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 4px; color: var(--fg); }
+  .sheet h3 { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin: 20px 0 8px; }
+  .sheet .hint { margin: 0; }
+  .qr-box { background: #fff; border-radius: 12px; padding: 14px; margin: 14px auto 0; width: min(280px, 100%); box-sizing: border-box; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
+  .qr-box svg, .qr-box img { width: 100%; height: auto; display: block; }
+  .qr-box .qr-fail { color: #333; font-size: 14px; text-align: center; }
+  .sheet .row-btns { margin-top: 14px; }
+  .sheet .row-btns > * { flex: 1 1 140px; }
+  .check { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); cursor: pointer; }
+  .check input { width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--accent); flex: none; }
+  .check b { display: block; font-size: 15px; }
+  .check span { display: block; color: var(--muted); font-size: 13px; line-height: 1.45; margin-top: 2px; }
+  .sheet-close { display: flex; justify-content: flex-end; margin-top: 18px; }
+  .toast { z-index: 70; }
+  .import-list { margin: 12px 0 0; padding: 10px 12px; max-height: 180px; overflow-y: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; font: 14px/1.6 ui-monospace, Menlo, monospace; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 <header class="topbar">
   <div class="brand">Rebels Basketball Stats<small>Drag to record</small></div>
   <div class="sync"><span class="sync-dot" id="sync-dot"></span><span id="sync-text">Connecting…</span></div>
+  <div class="top-actions">
+  <button class="share-btn" id="share-btn" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>Share</button>
   <div class="tabs" role="tablist">
     <button role="tab" id="tab-game" aria-selected="true">Game</button>
     <button role="tab" id="tab-roster" aria-selected="false">Roster</button>
+  </div>
   </div>
 </header>
 
@@ -308,6 +334,35 @@
       <span class="hint" id="roster-msg"></span>
     </div>
   </section>
+</div>
+
+<div class="sheet-back" id="share-sheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="share-title">
+    <h2 id="share-title">Share this app</h2>
+    <p class="hint" id="share-sub"></p>
+    <label class="check" style="margin-top:14px"><input type="checkbox" id="share-bc"><div><b>Their phone sends stats to OBS</b><span>Leave this off unless they are the one keeping stats for the broadcast. If two phones send at once, the graphics jump between them.</span></div></label>
+    <div class="qr-box" id="share-qr" aria-label="QR code for the share link"></div>
+    <p class="hint small" style="text-align:center">Scan with their phone camera, or send the link.</p>
+    <div class="row-btns">
+      <button class="apply" id="share-send">Send link…</button>
+      <button class="ghost" id="share-copy">Copy link</button>
+    </div>
+    <h3>This device</h3>
+    <label class="check"><input type="checkbox" id="this-bc"><div><b>This device sends stats to OBS</b><span id="this-bc-sub">Turn off when someone else is keeping stats for the broadcast.</span></div></label>
+    <div class="sheet-close"><button class="ghost" id="share-done">Done</button></div>
+  </div>
+</div>
+
+<div class="sheet-back" id="import-sheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="import-title">
+    <h2 id="import-title">Shared roster</h2>
+    <p class="hint" id="import-sub"></p>
+    <div class="import-list" id="import-list"></div>
+    <div class="row-btns">
+      <button class="apply" id="import-yes">Load this roster</button>
+      <button class="ghost" id="import-no">Keep mine</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast" hidden><span id="toast-text"></span><button id="toast-undo">Undo</button></div>
@@ -595,12 +650,121 @@
     try { new BroadcastChannel(CHANNEL).postMessage(st); } catch (e) {}
     try { localStorage.setItem(CHANNEL, JSON.stringify(st)); } catch (e) {}
     if (location.protocol === 'file:') { setSync(false, 'Offline copy'); return; }
+    if (!broadcastOn()) { setSync(false, 'Not sending to OBS'); return; }
     if (inFlight) return;
     inFlight = true;
     fetch('/api/publish-stat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel: CHANNEL, state: st }) })
       .then(res => { inFlight = false; if (!res.ok) throw new Error(res.status); failStreak = 0; setSync(true, 'Live to OBS'); })
       .catch(() => { inFlight = false; failStreak++; setSync(false, failStreak > 1 ? 'Not reaching OBS — check Wi-Fi' : 'Syncing…'); });
   }
+
+  // ── Share: roster carry-over link + QR (2026-10-07) ──────────────────
+  // Share opens a sheet with a link to this same page carrying the roster in
+  // the #share= part of the URL (never sent to the server). Opening that link
+  // on another phone loads the roster there. Stats are NOT shared.
+  // Each device also has an "send stats to OBS" switch, so a second phone
+  // doesn't fight the main one on the broadcast graphics.
+  const BC_KEY = KEY + ':broadcast', SEEN_KEY = KEY + ':share-seen';
+  const QR_SRC = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
+  function broadcastOn() { try { return localStorage.getItem(BC_KEY) !== '0'; } catch (e) { return true; } }
+  function setBroadcast(on) {
+    try { localStorage.setItem(BC_KEY, on ? '1' : '0'); } catch (e) {}
+    if (on) { failStreak = 0; setSync(false, 'Connecting…'); publish(); } else setSync(false, 'Not sending to OBS');
+  }
+  const b64u = (bytes) => { let s = ''; for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+  const unb64u = (str) => { const s = atob(str.replace(/-/g, '+').replace(/_/g, '/')); const b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b; };
+  async function pipe(bytes, stream) { return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer()); }
+  async function encodeShare(obj) {
+    const raw = new TextEncoder().encode(JSON.stringify(obj));
+    try { if (typeof CompressionStream === 'function') return 'z' + b64u(await pipe(raw, new CompressionStream('deflate-raw'))); } catch (e) {}
+    return 'j' + b64u(raw);
+  }
+  async function decodeShare(str) {
+    const bytes = unb64u(str.slice(1));
+    const raw = str[0] === 'z' ? await pipe(bytes, new DecompressionStream('deflate-raw')) : bytes;
+    return JSON.parse(new TextDecoder().decode(raw));
+  }
+  const pack = () => roster.map(p => [p.n, p.name, (p.pos || []).join('/')]);
+  const unpack = (r) => {
+    const seen = new Set(), out = [];
+    (Array.isArray(r) ? r : []).forEach(x => {
+      const n = parseInt(x && x[0], 10), name = String((x && x[1]) || '').trim().slice(0, 60);
+      if (isNaN(n) || !name || seen.has(n)) return; seen.add(n);
+      out.push({ n, name, pos: String((x && x[2]) || '').split(/[\/\s]+/).map(s => s.trim().toUpperCase()).filter(Boolean).slice(0, 4) });
+    });
+    return out.sort((a, b) => a.n - b.n);
+  };
+  const sameRoster = (a, b) => JSON.stringify(a.map(p => [p.n, p.name, p.pos.join('/')])) === JSON.stringify(b.map(p => [p.n, p.name, (p.pos || []).join('/')]));
+
+  let shareUrl = '', qrLib = null;
+  function loadQr() {
+    if (qrLib) return qrLib;
+    qrLib = new Promise((res, rej) => { const s = document.createElement('script'); s.src = QR_SRC; s.onload = () => res(window.qrcode); s.onerror = rej; document.head.appendChild(s); });
+    qrLib.catch(() => { qrLib = null; });
+    return qrLib;
+  }
+  async function buildShare() {
+    const box = $('share-qr');
+    shareUrl = location.origin + location.pathname + '#share=' + await encodeShare({ v: 1, r: pack() }) + '&obs=' + ($('share-bc').checked ? 1 : 0);
+    try {
+      const qrcode = await loadQr();
+      const qr = qrcode(0, 'L'); qr.addData(shareUrl); qr.make();
+      box.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+    } catch (e) { box.innerHTML = '<p class="qr-fail">QR code needs an internet connection. Use Send link instead.</p>'; }
+  }
+  function openShare() {
+    if (!roster.length) { showTab('roster'); $('roster-msg').textContent = 'Add a roster first, then share.'; return; }
+    $('share-sub').textContent = `Opens this app on their phone with your roster (${roster.length} player${roster.length === 1 ? '' : 's'}) already loaded. Stats aren't shared.`;
+    $('share-bc').checked = false;
+    $('this-bc').checked = broadcastOn();
+    $('share-qr').innerHTML = '';
+    $('share-sheet').hidden = false;
+    buildShare();
+  }
+  $('share-btn').onclick = openShare;
+  $('share-done').onclick = () => { $('share-sheet').hidden = true; };
+  $('share-sheet').onclick = (e) => { if (e.target === $('share-sheet')) $('share-sheet').hidden = true; };
+  $('share-bc').onchange = buildShare;
+  $('this-bc').onchange = () => setBroadcast($('this-bc').checked);
+  $('share-copy').onclick = async () => {
+    if (!shareUrl) await buildShare();
+    try { await navigator.clipboard.writeText(shareUrl); toast('Link copied'); }
+    catch (e) { toast('Couldn’t copy — use Send link'); }
+  };
+  $('share-send').onclick = async () => {
+    if (!shareUrl) await buildShare();
+    const title = document.title;
+    if (navigator.share) { try { await navigator.share({ title, text: title + ' — roster included', url: shareUrl }); } catch (e) {} return; }
+    try { await navigator.clipboard.writeText(shareUrl); toast('Link copied — paste it in a text'); } catch (e) { toast('Couldn’t share from this browser'); }
+  };
+
+  // Incoming link. The #share= part stays in the address so a Home Screen
+  // icon added from it still carries the roster; a link this device has
+  // already handled is ignored, so it never re-asks.
+  (function () {
+    const m = /[#&]share=([A-Za-z0-9_-]+)/.exec(location.hash);
+    if (!m) return;
+    let seen = ''; try { seen = localStorage.getItem(SEEN_KEY) || ''; } catch (e) {}
+    if (seen === m[1]) return;
+    const markSeen = () => { try { localStorage.setItem(SEEN_KEY, m[1]); } catch (e) {} };
+    // Applied right away (before this page's first send) so a second phone
+    // never pushes an empty stat sheet over the live graphics.
+    const obs = /[#&]obs=([01])/.exec(location.hash);
+    if (obs) { try { localStorage.setItem(BC_KEY, obs[1]); } catch (e) {} }
+    decodeShare(m[1]).then(data => {
+      const incoming = unpack(data && data.r);
+      if (!incoming.length) return;
+      const apply = () => { roster = incoming; save(); renderAll(); markSeen(); toast(`Loaded ${incoming.length} players from the shared link` + (broadcastOn() ? '' : ' · not sending to OBS')); };
+      if (!roster.length) { apply(); return; }
+      if (sameRoster(incoming, roster)) { markSeen(); return; }
+      $('import-sub').textContent = `This link has ${incoming.length} player${incoming.length === 1 ? '' : 's'}. Loading it replaces the roster on this device. Stats you've logged stay.`;
+      $('import-list').textContent = incoming.map(p => `${p.n}, ${p.name}` + (p.pos.length ? `, ${p.pos.join('/')}` : '')).join('\n');
+      $('import-sheet').hidden = false;
+      $('import-yes').onclick = () => { $('import-sheet').hidden = true; const old = roster; apply(); toast(`Loaded ${incoming.length} players`, () => { roster = old; save(); renderAll(); }); };
+      $('import-no').onclick = () => { $('import-sheet').hidden = true; markSeen(); };
+    }).catch(() => toast('That share link didn’t open. Ask for a new one.'));
+  })();
+
   setInterval(publish, 3000);
 
   renderAll();
