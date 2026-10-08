@@ -396,14 +396,15 @@
     { id: 'dreb', label: 'Def Reb', sub: 'Defensive', tone: 'b', row: 'Rebounds & defense', adds: { dreb: 1, reb: 1 } },
     { id: 'stl', label: 'Steal', tone: 'o', row: 'Rebounds & defense', adds: { stl: 1 } },
     { id: 'blk', label: 'Block', tone: 'o', row: 'Rebounds & defense', adds: { blk: 1 } },
-    { id: 'to', label: 'Turnover', tone: 'r', row: 'Turnovers & fouls', adds: { to: 1 } },
-    { id: 'pf', label: 'Foul', tone: 'r', row: 'Turnovers & fouls', adds: { pf: 1 } }
+    { id: 'pf', label: 'Foul', tone: 'r', row: 'Fouls', adds: { pf: 1 } }
   ];
   const STAT = Object.fromEntries(STATS.map(s => [s.id, s]));
   // Rebounds logged before the OREB/DREB split (2026-10-07) count as defensive.
   STAT.reb = { id: 'reb', label: 'Rebound', tone: 'b', adds: { dreb: 1, reb: 1 } };
-  const KEYS = ['points', 'threes', 'ftm', 'oreb', 'dreb', 'reb', 'ast', 'stl', 'blk', 'to', 'pf'];
-  const COLS = [['Pts', 'points'], ['3PM', 'threes'], ['FTM', 'ftm'], ['OReb', 'oreb'], ['DReb', 'dreb'], ['Ast', 'ast'], ['Stl', 'stl'], ['Blk', 'blk'], ['TO', 'to'], ['PF', 'pf', 4]];
+  // Turnovers were removed as a stat (2026-10-07); any logged earlier are ignored.
+  STAT.to = { id: 'to', label: 'Turnover', tone: 'r', adds: {} };
+  const KEYS = ['points', 'threes', 'ftm', 'oreb', 'dreb', 'reb', 'ast', 'stl', 'blk', 'pf'];
+  const COLS = [['Pts', 'points'], ['3PM', 'threes'], ['FTM', 'ftm'], ['OReb', 'oreb'], ['DReb', 'dreb'], ['Ast', 'ast'], ['Stl', 'stl'], ['Blk', 'blk'], ['PF', 'pf', 4]];
   const LOG_WORD = { made2: 'made a 2', made3: 'made a 3', ft: 'made a free throw', ast: 'assist', reb: 'rebound', oreb: 'offensive rebound', dreb: 'defensive rebound', stl: 'steal', blk: 'block', to: 'turnover', pf: 'foul' };
   const FOUL_WARN = 4, FOUL_OUT = 5;
   const SWAP_MS = 900;
@@ -657,7 +658,7 @@
   $('tab-roster').onclick = () => showTab('roster');
 
   // ── Publish to OBS ───────────────────────────────────────────────────
-  // { basketball: { teamName, team:'boys'|'girls', roster: [{id, name, number, stats:{points,threes,ftm,oreb,dreb,reb,ast,stl,blk,to,pf}}], pog:{pog} }, _updatedAt }
+  // { basketball: { teamName, team:'boys'|'girls', roster: [{id, name, number, stats:{points,threes,ftm,oreb,dreb,reb,ast,stl,blk,pf}}], pog:{pog} }, _updatedAt }
   function payload() {
     const s = computeStats();
     const list = roster.filter(p => (s[p.n] && KEYS.some(k => s[p.n][k])) || p.n === pog).map(p => {
