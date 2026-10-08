@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Girls BB Stats">
+<meta name="theme-color" content="#0d1318">
+<link rel="apple-touch-icon" href="icon-girls-basketball.png">
+<link rel="icon" type="image/png" href="icon-girls-basketball.png">
+<title>Rebels Girls Basketball Stats</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Layout: sideline tablet tool. Left = the play-entry flow (big touch targets),
+     right = play log + running stat sheet. Stacks to one column on phones. */
+  :root {
+    color-scheme: dark;
+    --bg: #0d1318;
+    --surface: #151e26;
+    --surface-2: #1c2833;
+    --line: #283746;
+    --fg: #e9eff5;
+    --muted: #8898a8;
+    --accent: #3b8cf0;      /* Rebels blue */
+    --accent-ink: #ffffff;
+    --run: #3fbf7f;
+    --pass: #3b8cf0;
+    --def: #ef5b5b;
+    --gold: #ffcc33;
+    --loss: #f0a03b;
+    --display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    --body: 'Barlow', 'Helvetica Neue', Arial, sans-serif;
+  }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font-family: var(--body); font-size: 16px;
+    padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); padding-block: env(safe-area-inset-top, 0px) calc(24px + env(safe-area-inset-bottom, 0px)); margin: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button { font-family: inherit; color: inherit; cursor: pointer; }
+  button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+  /* ── Top bar ── */
+  .topbar {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px;
+    padding-block: 14px; background: var(--bg); border-bottom: 1px solid var(--line);
+  }
+  .brand { font-family: var(--display); font-weight: 800; font-size: 26px; letter-spacing: 0.02em; text-transform: uppercase; }
+  .brand small { display: block; font-family: var(--body); font-weight: 600; font-size: 12px; letter-spacing: 0.14em; color: var(--muted); }
+  .qb-pick { display: flex; align-items: center; gap: 8px; }
+  .qb-pick label { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  select {
+    background: var(--surface-2); color: var(--fg); border: 1px solid var(--line); border-radius: 8px;
+    font: 600 16px var(--body); padding: 9px 10px; min-height: 44px;
+  }
+  .tabs { margin-left: auto; display: flex; gap: 4px; background: var(--surface); border-radius: 10px; padding: 4px; }
+  .tabs button { background: none; border: 0; border-radius: 7px; padding: 8px 14px; font-weight: 700; font-size: 14px; color: var(--muted); min-height: 40px; }
+  .tabs button[aria-selected="true"] { background: var(--surface-2); color: var(--fg); }
+  .sample-note { width: 100%; font-size: 13px; color: var(--muted); }
+  .sample-note button { background: none; border: 0; color: var(--accent); font-weight: 700; padding: 0; text-decoration: underline; }
+
+  /* ── Main grid ── */
+  .main { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; padding-block: 18px 0; }
+  @media (max-width: 860px) { .main { grid-template-columns: minmax(0, 1fr); } }
+
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; min-width: 0; }
+  .panel h2 { font-family: var(--display); font-weight: 700; font-size: 15px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+
+  /* ── Flow ── */
+  .add-play {
+    width: 100%; min-height: 130px; border: 0; border-radius: 14px;
+    background: var(--accent); color: var(--accent-ink);
+    font-family: var(--display); font-weight: 800; font-size: 48px; letter-spacing: 0.04em; text-transform: uppercase;
+    display: flex; align-items: center; justify-content: center; gap: 14px;
+  }
+  .add-play:active { transform: scale(0.99); filter: brightness(1.08); }
+  .add-play .plus { font-size: 60px; line-height: 1; margin-top: -6px; }
+
+  .flow-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .crumbs { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .crumb { font-size: 13px; font-weight: 700; padding: 5px 10px; border-radius: 999px; background: var(--surface-2); color: var(--fg); }
+  .crumb.t-run { background: color-mix(in srgb, var(--run) 22%, transparent); }
+  .crumb.t-pass { background: color-mix(in srgb, var(--pass) 22%, transparent); }
+  .crumb.t-def { background: color-mix(in srgb, var(--def) 22%, transparent); }
+  .ghost { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; font-weight: 700; font-size: 15px; min-height: 44px; }
+  .step-title { font-family: var(--display); font-weight: 700; font-size: 30px; text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 14px; }
+
+  .grid { display: grid; gap: 10px; }
+  .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .g5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  @media (max-width: 520px) { .g4 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .g5 { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+
+  .big {
+    min-height: 120px; border-radius: 14px; border: 2px solid transparent;
+    font-family: var(--display); font-weight: 800; font-size: 34px; text-transform: uppercase; letter-spacing: 0.03em;
+    background: var(--surface-2);
+  }
+  .big.run { background: color-mix(in srgb, var(--run) 20%, var(--surface-2)); border-color: var(--run); }
+  .big.pass { background: color-mix(in srgb, var(--pass) 20%, var(--surface-2)); border-color: var(--pass); }
+  .big.def { background: color-mix(in srgb, var(--def) 20%, var(--surface-2)); border-color: var(--def); }
+  .mid { min-height: 84px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); font-family: var(--display); font-weight: 700; font-size: 24px; text-transform: uppercase; }
+  .mid.warn { border-color: var(--loss); }
+  .mid.bad { border-color: var(--def); }
+  .mid.good { border-color: var(--run); }
+
+  .player {
+    min-height: 74px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2);
+    display: flex; align-items: center; gap: 10px; padding: 8px 12px; text-align: left;
+  }
+  .player .num { font-family: var(--display); font-weight: 800; font-size: 30px; min-width: 44px; text-align: center; font-variant-numeric: tabular-nums; }
+  .player .who { min-width: 0; display: flex; flex-direction: column; }
+  .player .nm { font-weight: 700; font-size: 15px; line-height: 1.15; overflow-wrap: anywhere; }
+  .player .ps { font-size: 12px; font-weight: 700; letter-spacing: 0.1em; color: var(--muted); }
+  .player.sel { border-color: var(--def); background: color-mix(in srgb, var(--def) 22%, var(--surface-2)); }
+  .player.other { justify-content: center; font-weight: 700; color: var(--muted); border-style: dashed; }
+  .pgrid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+
+  .yd {
+    min-height: 64px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2);
+    font-family: var(--display); font-weight: 800; font-size: 28px; font-variant-numeric: tabular-nums;
+  }
+  .yd.tens { color: var(--accent); }
+  .yd.tens[aria-expanded="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .yd.loss { color: var(--loss); }
+  .yd.loss[aria-expanded="true"] { background: var(--loss); color: #1a1206; border-color: var(--loss); }
+  .expand { margin-top: 10px; padding: 12px; border-radius: 12px; background: var(--bg); border: 1px dashed var(--line); }
+  .expand .yd { background: var(--surface); }
+  .sub { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin: 16px 0 8px; }
+
+  .td-toggle {
+    width: 100%; min-height: 60px; margin-bottom: 14px; border-radius: 12px;
+    border: 2px dashed var(--gold); background: transparent; color: var(--gold);
+    font-family: var(--display); font-weight: 800; font-size: 26px; letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .td-toggle[aria-pressed="true"] { background: var(--gold); color: #1c1600; border-style: solid; }
+  .save-row { margin-top: 14px; }
+  .primary { width: 100%; min-height: 64px; border: 0; border-radius: 12px; background: var(--def); color: #fff; font-family: var(--display); font-weight: 800; font-size: 26px; text-transform: uppercase; }
+  .primary:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* ── Log & stats ── */
+  .side { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+  .log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .log li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); }
+  .log .dot { width: 8px; align-self: stretch; border-radius: 4px; flex: none; }
+  .log .dot.run { background: var(--run); } .log .dot.pass { background: var(--pass); } .log .dot.def { background: var(--def); }
+  .log .txt { flex: 1; min-width: 0; font-size: 15px; }
+  .log .txt b { font-weight: 700; }
+  .log .td { color: var(--gold); font-weight: 800; font-size: 12px; letter-spacing: 0.1em; margin-left: 4px; }
+  .log .del { background: none; border: 1px solid var(--line); border-radius: 8px; min-width: 44px; min-height: 40px; color: var(--muted); font-size: 18px; }
+  .empty { color: var(--muted); font-size: 14px; }
+
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; font-variant-numeric: tabular-nums; }
+  caption { text-align: left; font-family: var(--display); font-weight: 700; font-size: 18px; text-transform: uppercase; letter-spacing: 0.04em; padding: 14px 0 6px; }
+  th { text-align: right; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); padding: 4px 8px; border-bottom: 1px solid var(--line); }
+  td { text-align: right; padding: 7px 8px; border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent); }
+  th:first-child, td:first-child { text-align: left; padding-left: 0; }
+  td .n { font-family: var(--display); font-weight: 800; font-size: 17px; color: var(--muted); margin-right: 6px; }
+
+  /* ── Roster ── */
+  textarea { width: 100%; min-height: 360px; box-sizing: border-box; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font: 15px/1.5 ui-monospace, Menlo, monospace; }
+  .hint { color: var(--muted); font-size: 14px; line-height: 1.5; max-width: 62ch; }
+  .roster-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+  .apply { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 10px; padding: 12px 20px; font-weight: 700; font-size: 16px; min-height: 48px; }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+    display: flex; align-items: center; gap: 14px; max-width: calc(100% - 32px);
+    background: var(--fg); color: var(--bg); border-radius: 12px; padding: 12px 14px 12px 18px;
+    font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.45); z-index: 10;
+  }
+  .toast button { background: var(--bg); color: var(--fg); border: 0; border-radius: 8px; padding: 8px 14px; font-weight: 700; min-height: 40px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .step { animation: step-in 0.18s ease-out; }
+    @keyframes step-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  }
+
+  /* app additions */
+  .sync { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--muted); }
+  .sync-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--loss); box-shadow: 0 0 0 3px color-mix(in srgb, var(--loss) 25%, transparent); }
+  .sync-dot.on { background: var(--run); box-shadow: 0 0 0 3px color-mix(in srgb, var(--run) 25%, transparent); }
+  .panel.wide { grid-column: 1 / -1; }
+  .panel h2 .count { letter-spacing: 0.04em; text-transform: none; font-family: var(--body); font-weight: 600; font-size: 13px; }
+  .pog { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 12px; align-items: center; }
+  .pog label { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  .pog select { width: 100%; }
+  .hint.small { font-size: 13px; margin: 10px 0 0; }
+  .warn-text { color: var(--loss); font-weight: 700; margin-top: -4px; }
+  .ghost.danger { border-color: color-mix(in srgb, var(--def) 60%, var(--line)); color: #ffb3b3; }
+  .row-btns { display: flex; flex-wrap: wrap; gap: 10px; }
+  .toast #toast-undo[hidden] { display: none !important; }
+
+  /* drag layout (same as the volleyball app) */
+  :root { --vb-p: #b07cf0; }
+  .vb { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 20px; padding-block: 18px 0; align-items: start; }
+  @media (max-width: 760px) { .vb { grid-template-columns: minmax(0, 1fr) 200px; gap: 12px; } }
+  .vb-main { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+  .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .sec-head h2, .vb h2 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 15px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+  .panel h2 { margin-bottom: 10px; }
+  .count { font-size: 13px; color: var(--muted); font-weight: 600; }
+  .court { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+  @media (max-width: 1000px) { .court { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .slot { position: relative; min-height: 78px; border-radius: 12px; border: 2px solid var(--line); background: var(--surface); display: flex; align-items: stretch; padding: 5px; }
+  .slot.empty { border-style: dashed; align-items: center; justify-content: center; }
+  .slot-empty { color: var(--muted); font-weight: 600; font-size: 14px; }
+  .slot .pl { flex: 1; }
+  .slot.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+  .slot .swap-ring { position: absolute; left: 0; bottom: 0; height: 5px; width: 0; border-radius: 0 0 10px 10px; background: var(--gold); }
+  .slot.arming .swap-ring { animation: swap-fill 0.9s linear forwards; }
+  @keyframes swap-fill { to { width: 100%; } }
+  .stats-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .row-label { font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin: 14px 0 6px; }
+  .row-label:first-child { margin-top: 0; }
+  .sbox { flex-direction: column; gap: 2px; }
+  .sbox small { font-family: var(--body); font-weight: 700; font-size: 13px; letter-spacing: 0.06em; color: var(--muted); text-transform: none; }
+  .sbox.r { border-color: var(--def); background: color-mix(in srgb, var(--def) 18%, var(--surface)); }
+  .pl .pf { font-size: 11px; font-weight: 800; letter-spacing: 0.06em; padding: 2px 6px; border-radius: 6px; background: var(--surface); color: var(--muted); white-space: nowrap; }
+  .pl .pf.warn { background: color-mix(in srgb, var(--loss) 30%, var(--surface)); color: #ffd9a3; }
+  .pl .pf.out { background: var(--def); color: #fff; }
+  .pl .nmw { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+  .pl .fouls { display: flex; flex-wrap: wrap; gap: 3px; height: 8px; overflow: hidden; }
+  .pl .fouls i { width: 8px; height: 8px; border-radius: 50%; background: #ef3b3b; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); }
+  .slot .pl { flex-direction: column; justify-content: center; gap: 2px; padding: 6px 4px; text-align: center; }
+  .slot .pl .num { min-width: 0; line-height: 1; }
+  .slot .pl .nmw { flex: none; width: 100%; align-items: center; }
+  .slot .pl .nm { font-size: 14px; overflow-wrap: break-word; word-break: normal; hyphens: auto; }
+  .slot .pl .fouls { justify-content: center; }
+  .slot .pl .ps { display: none; }
+  td.warn-cell { color: var(--def); font-weight: 800; }
+  .sbox { min-height: 96px; border-radius: 14px; border: 2px solid; display: flex; align-items: center; justify-content: center; font-family: var(--display); font-weight: 800; font-size: 30px; text-transform: uppercase; letter-spacing: 0.04em; user-select: none; -webkit-user-select: none; transition: transform 0.12s ease; cursor: pointer; }
+  .sbox.g { border-color: var(--run); background: color-mix(in srgb, var(--run) 20%, var(--surface)); }
+  .sbox.b { border-color: var(--pass); background: color-mix(in srgb, var(--pass) 20%, var(--surface)); }
+  .sbox.y { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 18%, var(--surface)); }
+  .sbox.o { border-color: var(--loss); background: color-mix(in srgb, var(--loss) 18%, var(--surface)); }
+  .sbox.p { border-color: var(--vb-p); background: color-mix(in srgb, var(--vb-p) 20%, var(--surface)); }
+  .sbox.over { transform: scale(1.06); box-shadow: 0 0 0 4px color-mix(in srgb, var(--fg) 30%, transparent); }
+  .sbox.hit { animation: hit 0.45s ease; }
+  @keyframes hit { 0% { filter: brightness(1.8); transform: scale(1.08); } 100% { filter: none; transform: none; } }
+  .vb-roster { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 84px); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; max-height: calc(100vh - 110px); overflow-y: auto; }
+  .vb-roster h2 { margin-bottom: 10px; }
+  .roster-list { display: flex; flex-direction: column; gap: 7px; }
+  .pl { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: grab; }
+  .pl .num { font-family: var(--display); font-weight: 800; font-size: 26px; min-width: 36px; text-align: center; font-variant-numeric: tabular-nums; }
+  .pl .nm { flex: 1; min-width: 0; font-weight: 700; font-size: 15px; line-height: 1.15; overflow-wrap: anywhere; }
+  .pl .ps { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; color: var(--muted); }
+  .pl.in { opacity: 0.55; }
+  .pl.in::after { content: 'ON'; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; color: var(--accent); }
+  .pl.sel { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); opacity: 1; }
+  .pl.dragging { opacity: 0.35; }
+  .pl.ghost { position: fixed; left: 0; top: 0; z-index: 50; pointer-events: none; opacity: 0.95; box-shadow: 0 12px 30px rgba(0,0,0,0.5); border-color: var(--accent); }
+  .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+  @media (max-width: 760px) { .two { grid-template-columns: minmax(0, 1fr); } }
+  .two select { width: 100%; }
+  .log .dot.g { background: var(--run); } .log .dot.b { background: var(--pass); } .log .dot.y { background: var(--gold); } .log .dot.o { background: var(--loss); } .log .dot.p { background: var(--vb-p); } .log .dot.r { background: var(--def); }
+  .sbox { font-size: clamp(18px, 2.5vw, 30px); text-align: center; line-height: 1.05; padding: 6px; }
+  tr.tot td { font-weight: 800; border-bottom: 0; color: var(--muted); }
+
+  /* ── Share (2026-10-07) ── */
+  .share-btn { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; font-weight: 700; font-size: 14px; min-height: 44px; display: inline-flex; align-items: center; gap: 8px; }
+  .share-btn svg { width: 18px; height: 18px; }
+  .top-actions { margin-left: auto; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 10px; }
+  .top-actions .tabs { margin-left: 0; }
+  .sheet-back { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.6); display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; padding: calc(20px + env(safe-area-inset-top, 0px)) 16px calc(20px + env(safe-area-inset-bottom, 0px)); }
+  .sheet { width: 100%; max-width: 440px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.55); }
+  .sheet h2 { font-family: var(--display); font-weight: 800; font-size: 26px; text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 4px; color: var(--fg); }
+  .sheet h3 { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin: 20px 0 8px; }
+  .sheet .hint { margin: 0; }
+  .qr-box { background: #fff; border-radius: 12px; padding: 14px; margin: 14px auto 0; width: min(280px, 100%); box-sizing: border-box; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
+  .qr-box svg, .qr-box img { width: 100%; height: auto; display: block; }
+  .qr-box .qr-fail { color: #333; font-size: 14px; text-align: center; }
+  .sheet .row-btns { margin-top: 14px; }
+  .sheet .row-btns > * { flex: 1 1 140px; }
+  .check { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); cursor: pointer; }
+  .check input { width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--accent); flex: none; }
+  .check b { display: block; font-size: 15px; }
+  .check span { display: block; color: var(--muted); font-size: 13px; line-height: 1.45; margin-top: 2px; }
+  .sheet-close { display: flex; justify-content: flex-end; margin-top: 18px; }
+  .toast { z-index: 70; }
+  .import-list { margin: 12px 0 0; padding: 10px 12px; max-height: 180px; overflow-y: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; font: 14px/1.6 ui-monospace, Menlo, monospace; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">Rebels Girls Basketball<small>Drag to record</small></div>
+  <div class="sync"><span class="sync-dot" id="sync-dot"></span><span id="sync-text">Connecting…</span></div>
+  <div class="top-actions">
+  <button class="share-btn" id="share-btn" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>Share</button>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tab-game" aria-selected="true">Game</button>
+    <button role="tab" id="tab-roster" aria-selected="false">Roster</button>
+  </div>
+  </div>
+</header>
+
+<div id="view-game" class="vb">
+  <div class="vb-main">
+    <section class="court-wrap">
+      <div class="sec-head"><h2>On the floor</h2><span class="hint small" id="court-hint">Drag starters from the roster into the five boxes.</span></div>
+      <div class="court" id="court"></div>
+    </section>
+    <section>
+      <div class="sec-head"><h2>Drag a player onto what she did</h2></div>
+      <div id="statboxes"></div>
+    </section>
+    <section class="panel">
+      <div class="sec-head"><h2>Stat lines</h2><span class="count" id="play-count"></span></div>
+      <div id="stats"></div>
+    </section>
+    <section class="panel">
+      <h2>Recent</h2>
+      <ul class="log" id="log"></ul>
+    </section>
+    <section class="panel">
+      <h2>Player of the Game</h2>
+      <div class="pog"><label for="pog-select">Player</label><select id="pog-select"></select></div>
+      <p class="hint small">Shows on the Player of the Game graphic in OBS.</p>
+    </section>
+    <section class="panel">
+      <h2>New game</h2>
+      <p class="hint small">Clears every stat, the lineup and the Player of the Game pick. The roster stays.</p>
+      <div id="newgame-wrap"></div>
+    </section>
+  </div>
+  <aside class="vb-roster">
+    <h2>Roster</h2>
+    <div class="roster-list" id="roster-list"></div>
+  </aside>
+</div>
+
+<div id="view-roster" class="main" hidden>
+  <section class="panel wide">
+    <h2>Roster</h2>
+    <p class="hint">One player per line: <b>number, name, position</b>. Position is optional (PG, G, F, C).</p>
+    <textarea id="roster-text" spellcheck="false" aria-label="Roster" placeholder="3, Tyler Pope, PG&#10;21, Cole Weston, F&#10;44, Jake Kunz, C"></textarea>
+    <div class="roster-actions">
+      <button class="apply" id="roster-apply">Save roster</button>
+      <span class="hint" id="roster-msg"></span>
+    </div>
+  </section>
+</div>
+
+<div class="sheet-back" id="share-sheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="share-title">
+    <h2 id="share-title">Share this app</h2>
+    <p class="hint" id="share-sub"></p>
+    <div class="qr-box" id="share-qr" aria-label="QR code for the share link"></div>
+    <p class="hint small" style="text-align:center">Scan with their phone camera, or send the link.</p>
+    <div class="row-btns">
+      <button class="apply" id="share-send">Send link…</button>
+      <button class="ghost" id="share-copy">Copy link</button>
+    </div>
+    <div class="sheet-close"><button class="ghost" id="share-done">Done</button></div>
+  </div>
+</div>
+
+<div class="sheet-back" id="import-sheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="import-title">
+    <h2 id="import-title">Shared roster</h2>
+    <p class="hint" id="import-sub"></p>
+    <div class="import-list" id="import-list"></div>
+    <div class="row-btns">
+      <button class="apply" id="import-yes">Load this roster</button>
+      <button class="ghost" id="import-no">Keep mine</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden><span id="toast-text"></span><button id="toast-undo">Undo</button></div>
+
+<script>
+(function () {
+  'use strict';
+  // Same storage key as the earlier tap-first basketball app, so stats and
+  // the roster carry over. Old saves had court: [numbers]; now slots[5].
+  const KEY = 'rebels-basketball-girls-stat-tracker', CHANNEL = 'rebel-basketball-stats', VARIANT = 'girls';
+  // Boys and Girls keep separate rosters/stats on this device. Both send to the same OBS
+  // channel (only one game is ever being kept at a time); the payload says which team.
+  const COURT_SIZE = 5;
+  const STATS = [
+    { id: 'made2', label: 'Made 2', sub: '+2 pts', tone: 'g', row: 'Scoring', adds: { points: 2 } },
+    { id: 'made3', label: 'Made 3', sub: '+3 pts', tone: 'g', row: 'Scoring', adds: { points: 3, threes: 1 } },
+    { id: 'ft', label: 'Made FT', sub: '+1 pt', tone: 'g', row: 'Scoring', adds: { points: 1, ftm: 1 } },
+    { id: 'ast', label: 'Assist', tone: 'p', row: 'Scoring', adds: { ast: 1 } },
+    { id: 'oreb', label: 'Off Reb', sub: 'Offensive', tone: 'b', row: 'Rebounds & defense', adds: { oreb: 1, reb: 1 } },
+    { id: 'dreb', label: 'Def Reb', sub: 'Defensive', tone: 'b', row: 'Rebounds & defense', adds: { dreb: 1, reb: 1 } },
+    { id: 'stl', label: 'Steal', tone: 'o', row: 'Rebounds & defense', adds: { stl: 1 } },
+    { id: 'blk', label: 'Block', tone: 'o', row: 'Rebounds & defense', adds: { blk: 1 } },
+    { id: 'to', label: 'Turnover', tone: 'r', row: 'Turnovers & fouls', adds: { to: 1 } },
+    { id: 'pf', label: 'Foul', tone: 'r', row: 'Turnovers & fouls', adds: { pf: 1 } }
+  ];
+  const STAT = Object.fromEntries(STATS.map(s => [s.id, s]));
+  // Rebounds logged before the OREB/DREB split (2026-10-07) count as defensive.
+  STAT.reb = { id: 'reb', label: 'Rebound', tone: 'b', adds: { dreb: 1, reb: 1 } };
+  const KEYS = ['points', 'threes', 'ftm', 'oreb', 'dreb', 'reb', 'ast', 'stl', 'blk', 'to', 'pf'];
+  const COLS = [['Pts', 'points'], ['3PM', 'threes'], ['FTM', 'ftm'], ['OReb', 'oreb'], ['DReb', 'dreb'], ['Ast', 'ast'], ['Stl', 'stl'], ['Blk', 'blk'], ['TO', 'to'], ['PF', 'pf', 4]];
+  const LOG_WORD = { made2: 'made a 2', made3: 'made a 3', ft: 'made a free throw', ast: 'assist', reb: 'rebound', oreb: 'offensive rebound', dreb: 'defensive rebound', stl: 'steal', blk: 'block', to: 'turnover', pf: 'foul' };
+  const FOUL_WARN = 4, FOUL_OUT = 5;
+  const SWAP_MS = 900;
+
+  const emptySlots = () => Array(COURT_SIZE).fill(null);
+  let roster = [], events = [], slots = emptySlots(), pog = null, nextId = 1, updatedAt = Date.now();
+  function load() {
+    try {
+      const s = JSON.parse(localStorage.getItem(KEY));
+      if (s && Array.isArray(s.roster)) {
+        roster = s.roster; events = s.events || []; pog = s.pog ?? null; nextId = s.nextId || 1; updatedAt = s.updatedAt || Date.now();
+        if (Array.isArray(s.slots)) slots = s.slots.slice(0, COURT_SIZE).concat(emptySlots()).slice(0, COURT_SIZE);
+        else if (Array.isArray(s.court)) slots = s.court.slice(0, COURT_SIZE).concat(emptySlots()).slice(0, COURT_SIZE);
+        return;
+      }
+    } catch (e) {}
+    try {
+      const old = null; // Girls starts empty
+      const r = old && old.basketball && old.basketball.roster;
+      if (Array.isArray(r)) {
+        const seen = new Set();
+        r.forEach(p => { const n = parseInt(p.number, 10); if (isNaN(n) || !p.name || !p.name.trim() || seen.has(n)) return; seen.add(n); roster.push({ n, name: p.name.trim(), pos: [] }); });
+        roster.sort((a, b) => a.n - b.n);
+      }
+    } catch (e) {}
+  }
+  function save() {
+    updatedAt = Date.now();
+    try { localStorage.setItem(KEY, JSON.stringify({ roster, events, slots, pog, nextId, updatedAt })); } catch (e) {}
+    publish();
+  }
+  load();
+
+  const $ = (id) => document.getElementById(id);
+  const byNum = (n) => roster.find(p => p.n === n);
+  const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const shortName = (name) => { const parts = String(name).split(' '); return parts.length > 1 ? parts[0][0] + '. ' + parts.slice(1).join(' ') : name; };
+  const label = (n) => { const p = byNum(n); return p ? '#' + p.n + ' ' + shortName(p.name) : '#' + n; };
+  let foulCache = {};
+  const foulDots = (n) => { const f = Math.min(foulCache[n] || 0, 9); return `<span class="fouls" aria-label="${f} foul${f === 1 ? '' : 's'}">${'<i></i>'.repeat(f)}</span>`; };
+  const tile = (p, extra) => `<div class="pl${extra || ''}" data-drag="${p.n}"><span class="num">${p.n}</span><span class="nmw"><span class="nm">${esc(p.name)}</span>${foulDots(p.n)}</span>${p.pos.length ? `<span class="ps">${esc(p.pos.join('/'))}</span>` : ''}</div>`;
+
+  // ── Render ───────────────────────────────────────────────────────────
+  let selected = null; // tap-to-select fallback
+  function renderCourt() {
+    slots = slots.map(n => (n != null && byNum(n)) ? n : null);
+    $('court').innerHTML = slots.map((n, i) => `<div class="slot${n == null ? ' empty' : ''}" data-slot="${i}">` +
+      (n == null ? `<span class="slot-empty">Drop a starter</span>` : tile(byNum(n), selected === n ? ' sel' : '')) + `<span class="swap-ring"></span></div>`).join('');
+    const filled = slots.filter(n => n != null).length;
+    $('court-hint').textContent = filled < COURT_SIZE ? 'Drag starters from the roster into the five boxes.' : 'Sub: drag a player from the bench onto a box and hold for a second.';
+  }
+  function renderRoster() {
+    const onCourt = new Set(slots.filter(n => n != null));
+    $('roster-list').innerHTML = roster.length ? roster.map(p => tile(p, (onCourt.has(p.n) ? ' in' : '') + (selected === p.n ? ' sel' : ''))).join('')
+      : '<p class="empty">Add players on the Roster tab.</p>';
+  }
+  function renderStatBoxes() {
+    const rows = [];
+    STATS.forEach(s => { let r = rows.find(x => x.name === s.row); if (!r) rows.push(r = { name: s.row, items: [] }); r.items.push(s); });
+    $('statboxes').innerHTML = rows.map(r => `<div class="row-label">${r.name}</div><div class="stats-row">` +
+      r.items.map(s => `<div class="sbox ${s.tone}" data-stat="${s.id}"><span>${s.label}</span>${s.sub ? `<small>${s.sub}</small>` : ''}</div>`).join('') + '</div>').join('');
+  }
+  function computeStats() {
+    const s = {};
+    const get = (n) => s[n] || (s[n] = Object.fromEntries(KEYS.map(k => [k, 0])));
+    events.forEach(e => {
+      const st = STAT[e.stat]; if (!st) return;
+      const x = get(e.player);
+      Object.entries(st.adds).forEach(([k, v]) => { x[k] += v; });
+      if (e.assist != null) get(e.assist).ast++; // assists logged by the older tap-first app
+    });
+    return s;
+  }
+  function renderStats() {
+    const s = computeStats();
+    foulCache = Object.fromEntries(Object.entries(s).map(([n, x]) => [n, x.pf]));
+    const nums = Object.keys(s).map(Number).filter(n => KEYS.some(k => s[n][k])).sort((a, b) => (s[b].points - s[a].points) || a - b);
+    $('play-count').textContent = events.length ? events.length + ' logged' : '';
+    if (!nums.length) { $('stats').innerHTML = '<p class="empty">Stat lines appear here once a player has a stat.</p>'; return; }
+    $('stats').innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>Player</th>${COLS.map(c => `<th>${c[0]}</th>`).join('')}</tr></thead><tbody>` +
+      nums.map(n => `<tr><td><span class="n">${n}</span>${esc((byNum(n) || { name: 'Not on roster' }).name)}</td>${COLS.map(c => `<td${c[2] && s[n][c[1]] >= c[2] ? ' class="warn-cell"' : ''}>${s[n][c[1]]}</td>`).join('')}</tr>`).join('') +
+      `<tr class="tot"><td>Team</td>${COLS.map(c => `<td>${nums.reduce((t, n) => t + s[n][c[1]], 0)}</td>`).join('')}</tr></tbody></table></div>`;
+  }
+  function renderLog() {
+    const recent = events.slice(-8).reverse();
+    const words = (e) => (LOG_WORD[e.stat] || e.stat) + (e.assist != null ? ' (assist ' + label(e.assist) + ')' : '');
+    $('log').innerHTML = recent.length ? recent.map(e => `<li><span class="dot ${(STAT[e.stat] || {}).tone || ''}"></span><span class="txt"><b>${esc(label(e.player))}</b> ${esc(words(e))}</span><button class="del" data-del="${e.id}" aria-label="Delete">✕</button></li>`).join('')
+      : '<li class="empty" style="background:none;padding:0">Nothing logged yet.</li>';
+    $('log').querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+      const id = Number(b.dataset.del), i = events.findIndex(e => e.id === id);
+      if (i < 0) return;
+      const [rm] = events.splice(i, 1); save(); renderAll();
+      toast('Deleted ' + label(rm.player) + ' ' + ((STAT[rm.stat] || {}).label || rm.stat), () => { events.splice(i, 0, rm); save(); renderAll(); });
+    });
+  }
+  // stats first so the foul badges on the tiles are current
+  function renderPog() {
+    const sel = $('pog-select');
+    if (pog != null && !byNum(pog)) pog = null;
+    sel.innerHTML = '<option value="">Not selected</option>' + roster.map(p => `<option value="${p.n}">#${p.n} ${esc(p.name)}</option>`).join('');
+    sel.value = pog == null ? '' : String(pog);
+  }
+  $('pog-select').onchange = (e) => { pog = e.target.value === '' ? null : Number(e.target.value); save(); toast(pog == null ? 'Player of the Game cleared' : 'Player of the Game: ' + label(pog)); };
+  function renderAll() { renderStats(); renderCourt(); renderRoster(); renderStatBoxes(); renderLog(); renderPog(); }
+
+  // ── Actions ──────────────────────────────────────────────────────────
+  function record(n, stat) {
+    const e = { id: nextId++, player: n, stat };
+    events.push(e); save();
+    selected = null; renderAll();
+    flash(stat);
+    const f = stat === 'pf' ? computeStats()[n].pf : 0;
+    const extra = f >= FOUL_OUT ? ' · FOULED OUT' : stat === 'pf' ? ' · ' + f + (f === 1 ? ' foul' : ' fouls') : '';
+    toast(label(n) + ' · ' + STAT[stat].label + extra, () => { events = events.filter(x => x.id !== e.id); save(); renderAll(); });
+  }
+  function placeInSlot(n, i) {
+    const prev = slots[i];
+    const from = slots.indexOf(n);
+    if (from === i) return;
+    if (from >= 0) slots[from] = prev; // dragging between boxes swaps them
+    slots[i] = n;
+    save(); selected = null; renderAll();
+    if (prev != null && from < 0) toast('Sub: ' + label(n) + ' in for ' + label(prev), null);
+  }
+  function flash(stat) {
+    const el = document.querySelector(`.sbox[data-stat="${stat}"]`);
+    if (!el) return;
+    el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit');
+  }
+
+  // ── Drag (pointer events, works with a finger on iPad) ───────────────
+  let drag = null;
+  document.addEventListener('pointerdown', (ev) => {
+    const t = ev.target.closest('[data-drag]');
+    if (!t || ev.button > 0) return;
+    const n = Number(t.dataset.drag);
+    const r = t.getBoundingClientRect();
+    drag = { n, src: t, startX: ev.clientX, startY: ev.clientY, dx: ev.clientX - r.left, dy: ev.clientY - r.top, w: r.width, moved: false, ghost: null, over: null, timer: null, fromCourt: !!t.closest('.slot') };
+    try { t.setPointerCapture(ev.pointerId); } catch (e) {}
+    ev.preventDefault();
+  });
+  document.addEventListener('pointermove', (ev) => {
+    if (!drag) return;
+    if (!drag.moved && Math.hypot(ev.clientX - drag.startX, ev.clientY - drag.startY) < 8) return;
+    if (!drag.moved) {
+      drag.moved = true;
+      const g = drag.src.cloneNode(true);
+      g.classList.add('ghost'); g.style.width = drag.w + 'px';
+      document.body.appendChild(g); drag.ghost = g;
+      drag.src.classList.add('dragging');
+    }
+    drag.ghost.style.transform = `translate(${ev.clientX - drag.dx}px, ${ev.clientY - drag.dy}px)`;
+    const under = document.elementFromPoint(ev.clientX, ev.clientY);
+    const target = under && under.closest('[data-stat], [data-slot]');
+    if (target !== drag.over) setOver(target);
+  });
+  function setOver(target) {
+    if (drag.over) drag.over.classList.remove('over', 'arming');
+    clearTimeout(drag.timer); drag.timer = null;
+    drag.over = target;
+    if (!target) return;
+    target.classList.add('over');
+    // Sub: roster player held over a filled box for a moment swaps them in.
+    if (target.dataset.slot != null) {
+      const i = Number(target.dataset.slot);
+      if (slots[i] != null && slots[i] !== drag.n && !drag.fromCourt) {
+        target.classList.add('arming');
+        const d = drag;
+        drag.timer = setTimeout(() => { if (drag === d && d.over === target) { endDrag(); placeInSlot(d.n, i); } }, SWAP_MS);
+      }
+    }
+  }
+  function endDrag() {
+    if (!drag) return;
+    clearTimeout(drag.timer);
+    if (drag.over) drag.over.classList.remove('over', 'arming');
+    if (drag.ghost) drag.ghost.remove();
+    drag.src.classList.remove('dragging');
+    drag = null;
+  }
+  document.addEventListener('pointerup', (ev) => {
+    if (!drag) return;
+    const d = drag, target = d.over;
+    if (!d.moved) { endDrag(); selected = selected === d.n ? null : d.n; renderCourt(); renderRoster(); return; }
+    endDrag();
+    if (!target) return;
+    if (target.dataset.stat) record(d.n, target.dataset.stat);
+    else if (target.dataset.slot != null) {
+      const i = Number(target.dataset.slot);
+      // Empty box: drop places the starter. Moving between boxes: drop swaps.
+      if (slots[i] == null || d.fromCourt) placeInSlot(d.n, i);
+    }
+  });
+  document.addEventListener('pointercancel', endDrag);
+  // Tap fallback: tap a player, then tap a stat box (or an empty court box).
+  document.addEventListener('click', (ev) => {
+    if (selected == null) return;
+    const sb = ev.target.closest('[data-stat]');
+    if (sb) { record(selected, sb.dataset.stat); return; }
+    const sl = ev.target.closest('.slot.empty');
+    if (sl) placeInSlot(selected, Number(sl.dataset.slot));
+  });
+
+  // ── Toast ────────────────────────────────────────────────────────────
+  let toastTimer = null, undoFn = null;
+  function toast(text, restore) {
+    $('toast-text').textContent = text; undoFn = restore || null;
+    $('toast-undo').hidden = !restore; $('toast').hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').hidden = true; }, 3500);
+  }
+  $('toast-undo').onclick = () => { if (undoFn) undoFn(); undoFn = null; $('toast').hidden = true; };
+
+  // ── New game ─────────────────────────────────────────────────────────
+  function renderNewGame(confirming) {
+    const w = $('newgame-wrap');
+    if (!confirming) { w.innerHTML = '<button class="ghost danger" id="newgame-btn">Start new game</button>'; $('newgame-btn').onclick = () => renderNewGame(true); return; }
+    w.innerHTML = `<p class="hint small" style="margin:0 0 10px">Clear ${events.length} stats, the lineup and the Player of the Game?</p><div class="row-btns"><button class="ghost danger" id="ng-yes">Yes, start fresh</button><button class="ghost" id="ng-no">Keep them</button></div>`;
+    $('ng-no').onclick = () => renderNewGame(false);
+    $('ng-yes').onclick = () => {
+      const old = { events, slots: slots.slice(), pog };
+      events = []; slots = emptySlots(); pog = null; save(); renderAll(); renderNewGame(false);
+      toast('New game started', () => { events = old.events; slots = old.slots; pog = old.pog; save(); renderAll(); });
+    };
+  }
+
+  // ── Roster tab ───────────────────────────────────────────────────────
+  function rosterText() { return roster.map(p => `${p.n}, ${p.name}` + (p.pos.length ? `, ${p.pos.join('/')}` : '')).join('\n'); }
+  $('roster-apply').onclick = () => {
+    const lines = $('roster-text').value.split('\n').map(l => l.trim()).filter(Boolean);
+    const parsed = [], bad = [], seen = new Set();
+    lines.forEach(l => {
+      const parts = l.replace(/^#/, '').split(/\s*[,\t]\s*/);
+      const n = parseInt(parts[0], 10);
+      if (isNaN(n) || !parts[1] || seen.has(n)) { bad.push(l); return; }
+      seen.add(n);
+      parsed.push({ n, name: parts[1], pos: (parts[2] || '').split(/[\/\s]+/).map(x => x.trim().toUpperCase()).filter(Boolean) });
+    });
+    if (!parsed.length) { $('roster-msg').textContent = 'No players found. Use one line per player: number, name, position.'; return; }
+    roster = parsed.sort((a, b) => a.n - b.n); save(); renderAll();
+    $('roster-text').value = rosterText();
+    $('roster-msg').textContent = `Saved ${parsed.length} players.` + (bad.length ? ` Skipped ${bad.length} line${bad.length > 1 ? 's' : ''} (missing number or name, or a repeated number).` : '');
+  };
+  function showTab(which) {
+    $('tab-game').setAttribute('aria-selected', which === 'game');
+    $('tab-roster').setAttribute('aria-selected', which === 'roster');
+    $('view-game').hidden = which !== 'game';
+    $('view-roster').hidden = which !== 'roster';
+    if (which === 'roster') { $('roster-text').value = rosterText(); $('roster-msg').textContent = ''; }
+  }
+  $('tab-game').onclick = () => showTab('game');
+  $('tab-roster').onclick = () => showTab('roster');
+
+  // ── Publish to OBS ───────────────────────────────────────────────────
+  // { basketball: { teamName, team:'boys'|'girls', roster: [{id, name, number, stats:{points,threes,ftm,oreb,dreb,reb,ast,stl,blk,to,pf}}], pog:{pog} }, _updatedAt }
+  function payload() {
+    const s = computeStats();
+    const list = roster.filter(p => (s[p.n] && KEYS.some(k => s[p.n][k])) || p.n === pog).map(p => {
+      const st = {}; Object.entries(s[p.n] || {}).forEach(([k, v]) => { if (v) st[k] = v; });
+      return { id: p.n, name: p.name, number: String(p.n), stats: st };
+    });
+    return { basketball: { teamName: 'Rebels', team: VARIANT, roster: list, pog: { pog: pog == null ? -1 : pog } }, _updatedAt: updatedAt };
+  }
+  let inFlight = false, failStreak = 0;
+  function setSync(ok, text) { $('sync-dot').className = 'sync-dot' + (ok ? ' on' : ''); $('sync-text').textContent = text; }
+  function publish() {
+    const st = payload();
+    try { new BroadcastChannel(CHANNEL).postMessage(st); } catch (e) {}
+    try { localStorage.setItem(CHANNEL, JSON.stringify(st)); } catch (e) {}
+    if (location.protocol === 'file:') { setSync(false, 'Offline copy'); return; }
+    if (inFlight) return;
+    inFlight = true;
+    fetch('/api/publish-stat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel: CHANNEL, state: st }) })
+      .then(res => { inFlight = false; if (!res.ok) throw new Error(res.status); failStreak = 0; setSync(true, 'Live to OBS'); })
+      .catch(() => { inFlight = false; failStreak++; setSync(false, failStreak > 1 ? 'Not reaching OBS — check Wi-Fi' : 'Syncing…'); });
+  }
+
+  // ── Share: roster carry-over link + QR (2026-10-07) ──────────────────
+  // Share opens a sheet with a link to this same page carrying the roster in
+  // the #share= part of the URL (never sent to the server). Opening that link
+  // on another phone loads the roster there. Stats are NOT shared.
+  // Every device sends its stats to OBS (only one device keeps stats at a time).
+  const SEEN_KEY = KEY + ':share-seen';
+  const QR_SRC = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
+  const b64u = (bytes) => { let s = ''; for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+  const unb64u = (str) => { const s = atob(str.replace(/-/g, '+').replace(/_/g, '/')); const b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b; };
+  async function pipe(bytes, stream) { return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer()); }
+  async function encodeShare(obj) {
+    const raw = new TextEncoder().encode(JSON.stringify(obj));
+    try { if (typeof CompressionStream === 'function') return 'z' + b64u(await pipe(raw, new CompressionStream('deflate-raw'))); } catch (e) {}
+    return 'j' + b64u(raw);
+  }
+  async function decodeShare(str) {
+    const bytes = unb64u(str.slice(1));
+    const raw = str[0] === 'z' ? await pipe(bytes, new DecompressionStream('deflate-raw')) : bytes;
+    return JSON.parse(new TextDecoder().decode(raw));
+  }
+  const pack = () => roster.map(p => [p.n, p.name, (p.pos || []).join('/')]);
+  const unpack = (r) => {
+    const seen = new Set(), out = [];
+    (Array.isArray(r) ? r : []).forEach(x => {
+      const n = parseInt(x && x[0], 10), name = String((x && x[1]) || '').trim().slice(0, 60);
+      if (isNaN(n) || !name || seen.has(n)) return; seen.add(n);
+      out.push({ n, name, pos: String((x && x[2]) || '').split(/[\/\s]+/).map(s => s.trim().toUpperCase()).filter(Boolean).slice(0, 4) });
+    });
+    return out.sort((a, b) => a.n - b.n);
+  };
+  const sameRoster = (a, b) => JSON.stringify(a.map(p => [p.n, p.name, p.pos.join('/')])) === JSON.stringify(b.map(p => [p.n, p.name, (p.pos || []).join('/')]));
+
+  let shareUrl = '', qrLib = null;
+  function loadQr() {
+    if (qrLib) return qrLib;
+    qrLib = new Promise((res, rej) => { const s = document.createElement('script'); s.src = QR_SRC; s.onload = () => res(window.qrcode); s.onerror = rej; document.head.appendChild(s); });
+    qrLib.catch(() => { qrLib = null; });
+    return qrLib;
+  }
+  async function buildShare() {
+    const box = $('share-qr');
+    shareUrl = location.origin + location.pathname + '#share=' + await encodeShare({ v: 1, r: pack() });
+    try {
+      const qrcode = await loadQr();
+      const qr = qrcode(0, 'L'); qr.addData(shareUrl); qr.make();
+      box.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+    } catch (e) { box.innerHTML = '<p class="qr-fail">QR code needs an internet connection. Use Send link instead.</p>'; }
+  }
+  function openShare() {
+    if (!roster.length) { showTab('roster'); $('roster-msg').textContent = 'Add a roster first, then share.'; return; }
+    $('share-sub').textContent = `Opens this app on their phone with your roster (${roster.length} player${roster.length === 1 ? '' : 's'}) already loaded. Their stats go to OBS just like yours do. Stats you've logged here aren't copied.`;
+    $('share-qr').innerHTML = '';
+    $('share-sheet').hidden = false;
+    buildShare();
+  }
+  $('share-btn').onclick = openShare;
+  $('share-done').onclick = () => { $('share-sheet').hidden = true; };
+  $('share-sheet').onclick = (e) => { if (e.target === $('share-sheet')) $('share-sheet').hidden = true; };
+  $('share-copy').onclick = async () => {
+    if (!shareUrl) await buildShare();
+    try { await navigator.clipboard.writeText(shareUrl); toast('Link copied'); }
+    catch (e) { toast('Couldn’t copy — use Send link'); }
+  };
+  $('share-send').onclick = async () => {
+    if (!shareUrl) await buildShare();
+    const title = document.title;
+    if (navigator.share) { try { await navigator.share({ title, text: title + ' — roster included', url: shareUrl }); } catch (e) {} return; }
+    try { await navigator.clipboard.writeText(shareUrl); toast('Link copied — paste it in a text'); } catch (e) { toast('Couldn’t share from this browser'); }
+  };
+
+  // Incoming link. The #share= part stays in the address so a Home Screen
+  // icon added from it still carries the roster; a link this device has
+  // already handled is ignored, so it never re-asks.
+  (function () {
+    const m = /[#&]share=([A-Za-z0-9_-]+)/.exec(location.hash);
+    if (!m) return;
+    let seen = ''; try { seen = localStorage.getItem(SEEN_KEY) || ''; } catch (e) {}
+    if (seen === m[1]) return;
+    const markSeen = () => { try { localStorage.setItem(SEEN_KEY, m[1]); } catch (e) {} };
+    decodeShare(m[1]).then(data => {
+      const incoming = unpack(data && data.r);
+      if (!incoming.length) return;
+      const apply = () => { roster = incoming; save(); renderAll(); markSeen(); toast(`Loaded ${incoming.length} players from the shared link`); };
+      if (!roster.length) { apply(); return; }
+      if (sameRoster(incoming, roster)) { markSeen(); return; }
+      $('import-sub').textContent = `This link has ${incoming.length} player${incoming.length === 1 ? '' : 's'}. Loading it replaces the roster on this device. Stats you've logged stay.`;
+      $('import-list').textContent = incoming.map(p => `${p.n}, ${p.name}` + (p.pos.length ? `, ${p.pos.join('/')}` : '')).join('\n');
+      $('import-sheet').hidden = false;
+      $('import-yes').onclick = () => { $('import-sheet').hidden = true; const old = roster; apply(); toast(`Loaded ${incoming.length} players`, () => { roster = old; save(); renderAll(); }); };
+      $('import-no').onclick = () => { $('import-sheet').hidden = true; markSeen(); };
+    }).catch(() => toast('That share link didn’t open. Ask for a new one.'));
+  })();
+
+  setInterval(publish, 3000);
+
+  renderAll();
+  renderNewGame(false);
+  publish();
+  if (!roster.length) showTab('roster');
+})();
+</script>
+
+</body>
+</html>
