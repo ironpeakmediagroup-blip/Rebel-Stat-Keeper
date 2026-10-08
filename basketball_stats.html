@@ -228,6 +228,15 @@
   .pl .pf { font-size: 11px; font-weight: 800; letter-spacing: 0.06em; padding: 2px 6px; border-radius: 6px; background: var(--surface); color: var(--muted); white-space: nowrap; }
   .pl .pf.warn { background: color-mix(in srgb, var(--loss) 30%, var(--surface)); color: #ffd9a3; }
   .pl .pf.out { background: var(--def); color: #fff; }
+  .pl .nmw { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+  .pl .fouls { display: flex; flex-wrap: wrap; gap: 3px; height: 8px; overflow: hidden; }
+  .pl .fouls i { width: 8px; height: 8px; border-radius: 50%; background: #ef3b3b; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); }
+  .slot .pl { flex-direction: column; justify-content: center; gap: 2px; padding: 6px 4px; text-align: center; }
+  .slot .pl .num { min-width: 0; line-height: 1; }
+  .slot .pl .nmw { flex: none; width: 100%; align-items: center; }
+  .slot .pl .nm { font-size: 14px; overflow-wrap: break-word; word-break: normal; hyphens: auto; }
+  .slot .pl .fouls { justify-content: center; }
+  .slot .pl .ps { display: none; }
   td.warn-cell { color: var(--def); font-weight: 800; }
   .sbox { min-height: 96px; border-radius: 14px; border: 2px solid; display: flex; align-items: center; justify-content: center; font-family: var(--display); font-weight: 800; font-size: 30px; text-transform: uppercase; letter-spacing: 0.04em; user-select: none; -webkit-user-select: none; transition: transform 0.12s ease; cursor: pointer; }
   .sbox.g { border-color: var(--run); background: color-mix(in srgb, var(--run) 20%, var(--surface)); }
@@ -424,8 +433,8 @@
   const shortName = (name) => { const parts = String(name).split(' '); return parts.length > 1 ? parts[0][0] + '. ' + parts.slice(1).join(' ') : name; };
   const label = (n) => { const p = byNum(n); return p ? '#' + p.n + ' ' + shortName(p.name) : '#' + n; };
   let foulCache = {};
-  const foulBadge = (n) => { const f = foulCache[n] || 0; if (!f) return ''; return `<span class="pf${f >= FOUL_OUT ? ' out' : f >= FOUL_WARN ? ' warn' : ''}">${f >= FOUL_OUT ? 'OUT' : f + ' PF'}</span>`; };
-  const tile = (p, extra) => `<div class="pl${extra || ''}" data-drag="${p.n}"><span class="num">${p.n}</span><span class="nm">${esc(p.name)}</span>${foulBadge(p.n)}${p.pos.length ? `<span class="ps">${esc(p.pos.join('/'))}</span>` : ''}</div>`;
+  const foulDots = (n) => { const f = Math.min(foulCache[n] || 0, 9); return `<span class="fouls" aria-label="${f} foul${f === 1 ? '' : 's'}">${'<i></i>'.repeat(f)}</span>`; };
+  const tile = (p, extra) => `<div class="pl${extra || ''}" data-drag="${p.n}"><span class="num">${p.n}</span><span class="nmw"><span class="nm">${esc(p.name)}</span>${foulDots(p.n)}</span>${p.pos.length ? `<span class="ps">${esc(p.pos.join('/'))}</span>` : ''}</div>`;
 
   // ── Render ───────────────────────────────────────────────────────────
   let selected = null; // tap-to-select fallback
