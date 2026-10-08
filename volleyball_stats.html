@@ -336,15 +336,12 @@
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="share-title">
     <h2 id="share-title">Share this app</h2>
     <p class="hint" id="share-sub"></p>
-    <label class="check" style="margin-top:14px"><input type="checkbox" id="share-bc"><div><b>Their phone sends stats to OBS</b><span>Leave this off unless they are the one keeping stats for the broadcast. If two phones send at once, the graphics jump between them.</span></div></label>
     <div class="qr-box" id="share-qr" aria-label="QR code for the share link"></div>
     <p class="hint small" style="text-align:center">Scan with their phone camera, or send the link.</p>
     <div class="row-btns">
       <button class="apply" id="share-send">Send link…</button>
       <button class="ghost" id="share-copy">Copy link</button>
     </div>
-    <h3>This device</h3>
-    <label class="check"><input type="checkbox" id="this-bc"><div><b>This device sends stats to OBS</b><span id="this-bc-sub">Turn off when someone else is keeping stats for the broadcast.</span></div></label>
     <div class="sheet-close"><button class="ghost" id="share-done">Done</button></div>
   </div>
 </div>
@@ -621,7 +618,6 @@
     try { new BroadcastChannel(CHANNEL).postMessage(st); } catch (e) {}
     try { localStorage.setItem(CHANNEL, JSON.stringify(st)); } catch (e) {}
     if (location.protocol === 'file:') { setSync(false, 'Offline copy'); return; }
-    if (!broadcastOn()) { setSync(false, 'Not sending to OBS'); return; }
     if (inFlight) return;
     inFlight = true;
     fetch('/api/publish-stat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel: CHANNEL, state: st }) })
@@ -633,15 +629,9 @@
   // Share opens a sheet with a link to this same page carrying the roster in
   // the #share= part of the URL (never sent to the server). Opening that link
   // on another phone loads the roster there. Stats are NOT shared.
-  // Each device also has an "send stats to OBS" switch, so a second phone
-  // doesn't fight the main one on the broadcast graphics.
-  const BC_KEY = KEY + ':broadcast', SEEN_KEY = KEY + ':share-seen';
+  // Every device sends its stats to OBS (only one device keeps stats at a time).
+  const SEEN_KEY = KEY + ':share-seen';
   const QR_SRC = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
-  function broadcastOn() { try { return localStorage.getItem(BC_KEY) !== '0'; } catch (e) { return true; } }
-  function setBroadcast(on) {
-    try { localStorage.setItem(BC_KEY, on ? '1' : '0'); } catch (e) {}
-    if (on) { failStreak = 0; setSync(false, 'Connecting…'); publish(); } else setSync(false, 'Not sending to OBS');
-  }
   const b64u = (bytes) => { let s = ''; for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
   const unb64u = (str) => { const s = atob(str.replace(/-/g, '+').replace(/_/g, '/')); const b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b; };
   async function pipe(bytes, stream) { return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer()); }
@@ -676,7 +666,7 @@
   }
   async function buildShare() {
     const box = $('share-qr');
-    shareUrl = location.origin + location.pathname + '#share=' + await encodeShare({ v: 1, r: pack() }) + '&obs=' + ($('share-bc').checked ? 1 : 0);
+    shareUrl = location.origin + location.pathname + '#share=' + await encodeShare({ v: 1, r: pack() });
     try {
       const qrcode = await loadQr();
       const qr = qrcode(0, 'L'); qr.addData(shareUrl); qr.make();
@@ -685,9 +675,7 @@
   }
   function openShare() {
     if (!roster.length) { showTab('roster'); $('roster-msg').textContent = 'Add a roster first, then share.'; return; }
-    $('share-sub').textContent = `Opens this app on their phone with your roster (${roster.length} player${roster.length === 1 ? '' : 's'}) already loaded. Stats aren't shared.`;
-    $('share-bc').checked = false;
-    $('this-bc').checked = broadcastOn();
+    $('share-sub').textContent = `Opens this app on their phone with your roster (${roster.length} player${roster.length === 1 ? '' : 's'}) already loaded. Their stats go to OBS just like yours do. Stats you've logged here aren't copied.`;
     $('share-qr').innerHTML = '';
     $('share-sheet').hidden = false;
     buildShare();
@@ -695,8 +683,6 @@
   $('share-btn').onclick = openShare;
   $('share-done').onclick = () => { $('share-sheet').hidden = true; };
   $('share-sheet').onclick = (e) => { if (e.target === $('share-sheet')) $('share-sheet').hidden = true; };
-  $('share-bc').onchange = buildShare;
-  $('this-bc').onchange = () => setBroadcast($('this-bc').checked);
   $('share-copy').onclick = async () => {
     if (!shareUrl) await buildShare();
     try { await navigator.clipboard.writeText(shareUrl); toast('Link copied'); }
@@ -718,14 +704,10 @@
     let seen = ''; try { seen = localStorage.getItem(SEEN_KEY) || ''; } catch (e) {}
     if (seen === m[1]) return;
     const markSeen = () => { try { localStorage.setItem(SEEN_KEY, m[1]); } catch (e) {} };
-    // Applied right away (before this page's first send) so a second phone
-    // never pushes an empty stat sheet over the live graphics.
-    const obs = /[#&]obs=([01])/.exec(location.hash);
-    if (obs) { try { localStorage.setItem(BC_KEY, obs[1]); } catch (e) {} }
     decodeShare(m[1]).then(data => {
       const incoming = unpack(data && data.r);
       if (!incoming.length) return;
-      const apply = () => { roster = incoming; save(); renderAll(); markSeen(); toast(`Loaded ${incoming.length} players from the shared link` + (broadcastOn() ? '' : ' · not sending to OBS')); };
+      const apply = () => { roster = incoming; save(); renderAll(); markSeen(); toast(`Loaded ${incoming.length} players from the shared link`); };
       if (!roster.length) { apply(); return; }
       if (sameRoster(incoming, roster)) { markSeen(); return; }
       $('import-sub').textContent = `This link has ${incoming.length} player${incoming.length === 1 ? '' : 's'}. Loading it replaces the roster on this device. Stats you've logged stay.`;
