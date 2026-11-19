@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Red Devils Stats">
+<meta name="theme-color" content="#0d1318">
+<link rel="apple-touch-icon" href="icon-rd-stats.png">
+<link rel="icon" type="image/png" href="icon-rd-stats.png">
+<title>Red Devils Stats</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  /* 2026-09-30: the old combined Stat Keeper was retired. Each sport has its own app; this page points old bookmarks at them. 2026-10-07: Boys/Girls basketball. */
+  :root { color-scheme: dark; --bg: #0d1318; --surface: #151e26; --line: #283746; --fg: #e9eff5; --muted: #8898a8; --run: #3fbf7f; --pass: #3b8cf0; --loss: #f0a03b; }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--fg); font-family: 'Barlow', Arial, sans-serif; display: flex; align-items: center; justify-content: center; padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); box-sizing: border-box; }
+  main { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 14px; }
+  h1 { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 800; font-size: 40px; text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 4px; }
+  p { color: var(--muted); margin: 0 0 10px; line-height: 1.5; }
+  a { display: flex; align-items: center; justify-content: space-between; min-height: 84px; padding: 0 24px; border-radius: 14px; border: 2px solid var(--line); background: var(--surface); color: var(--fg); text-decoration: none; font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 800; font-size: 32px; text-transform: uppercase; }
+  a span { font-family: 'Barlow', Arial, sans-serif; font-weight: 600; font-size: 14px; text-transform: none; color: var(--muted); }
+  a.fb { border-color: var(--run); } a.vb { border-color: var(--pass); } a.bb { border-color: var(--loss); }
+  a:focus-visible { outline: 3px solid #ffcc33; outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Red Devils Stats</h1>
+  <p>Each sport has its own stat app. Open one, then use Share → Add to Home Screen to keep it on this device.</p>
+  <a class="fb" href="rd_football_stats.html">Football <span>Play-by-play</span></a>
+  <a class="vb" href="rd_volleyball_stats.html">Volleyball <span>Drag to record</span></a>
+  <a class="bb" href="rd_boys_basketball_stats.html">Boys Basketball <span>Drag to record</span></a>
+  <a class="bb" href="rd_girls_basketball_stats.html">Girls Basketball <span>Drag to record</span></a>
+</main>
+</body>
+</html>
