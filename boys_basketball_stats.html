@@ -6,11 +6,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Boys BB Stats">
+<meta name="apple-mobile-web-app-title" content="RD Boys Stats">
 <meta name="theme-color" content="#0d1318">
-<link rel="apple-touch-icon" href="icon-boys-basketball.png">
-<link rel="icon" type="image/png" href="icon-boys-basketball.png">
-<title>Rebels Boys Basketball Stats</title>
+<link rel="apple-touch-icon" href="icon-rd-boys-basketball.png">
+<link rel="icon" type="image/png" href="icon-rd-boys-basketball.png">
+<title>Red Devils Boys Basketball Stats</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -25,7 +25,7 @@
     --line: #283746;
     --fg: #e9eff5;
     --muted: #8898a8;
-    --accent: #3b8cf0;      /* Rebels blue */
+    --accent: #e0262f;      /* Red Devils red */
     --accent-ink: #ffffff;
     --run: #3fbf7f;
     --pass: #3b8cf0;
@@ -292,7 +292,7 @@
 </head>
 <body>
 <header class="topbar">
-  <div class="brand">Rebels Boys Basketball<small>Drag to record</small></div>
+  <div class="brand">Red Devils Boys Basketball<small>Drag to record</small></div>
   <div class="sync"><span class="sync-dot" id="sync-dot"></span><span id="sync-text">Connecting…</span></div>
   <div class="top-actions">
   <button class="share-btn" id="share-btn" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>Share</button>
@@ -342,7 +342,7 @@
   <section class="panel wide">
     <h2>Roster</h2>
     <p class="hint">One player per line: <b>number, name, position</b>. Position is optional (PG, G, F, C).</p>
-    <textarea id="roster-text" spellcheck="false" aria-label="Roster" placeholder="3, Tyler Pope, PG&#10;21, Cole Weston, F&#10;44, Jake Kunz, C"></textarea>
+    <textarea id="roster-text" spellcheck="false" aria-label="Roster" placeholder="3, Player Name, PG&#10;21, Player Name, F&#10;44, Player Name, C"></textarea>
     <div class="roster-actions">
       <button class="apply" id="roster-apply">Save roster</button>
       <span class="hint" id="roster-msg"></span>
@@ -383,7 +383,7 @@
   'use strict';
   // Same storage key as the earlier tap-first basketball app, so stats and
   // the roster carry over. Old saves had court: [numbers]; now slots[5].
-  const KEY = 'rebels-basketball-boys-stat-tracker', CHANNEL = 'rebel-basketball-stats', VARIANT = 'boys';
+  const KEY = 'reddevils-basketball-boys-stat-tracker', CHANNEL = 'reddevil-basketball-stats', VARIANT = 'boys';
   // Boys and Girls keep separate rosters/stats on this device. Both send to the same OBS
   // channel (only one game is ever being kept at a time); the payload says which team.
   const COURT_SIZE = 5;
@@ -413,7 +413,7 @@
   let roster = [], events = [], slots = emptySlots(), pog = null, nextId = 1, updatedAt = Date.now();
   function load() {
     try {
-      const s = JSON.parse(localStorage.getItem(KEY)) || JSON.parse(localStorage.getItem('rebels-basketball-stat-tracker'));
+      const s = JSON.parse(localStorage.getItem(KEY)) || null;
       if (s && Array.isArray(s.roster)) {
         roster = s.roster; events = s.events || []; pog = s.pog ?? null; nextId = s.nextId || 1; updatedAt = s.updatedAt || Date.now();
         if (Array.isArray(s.slots)) slots = s.slots.slice(0, COURT_SIZE).concat(emptySlots()).slice(0, COURT_SIZE);
@@ -422,7 +422,7 @@
       }
     } catch (e) {}
     try {
-      const old = JSON.parse(localStorage.getItem('rebel-stat-report'));
+      const old = JSON.parse(null);
       const r = old && old.basketball && old.basketball.roster;
       if (Array.isArray(r)) {
         const seen = new Set();
@@ -665,7 +665,7 @@
       const st = {}; Object.entries(s[p.n] || {}).forEach(([k, v]) => { if (v) st[k] = v; });
       return { id: p.n, name: p.name, number: String(p.n), stats: st };
     });
-    return { basketball: { teamName: 'Rebels', team: VARIANT, roster: list, pog: { pog: pog == null ? -1 : pog } }, _updatedAt: updatedAt };
+    return { basketball: { teamName: 'Red Devils', team: VARIANT, roster: list, pog: { pog: pog == null ? -1 : pog } }, _updatedAt: updatedAt };
   }
   let inFlight = false, failStreak = 0;
   function setSync(ok, text) { $('sync-dot').className = 'sync-dot' + (ok ? ' on' : ''); $('sync-text').textContent = text; }

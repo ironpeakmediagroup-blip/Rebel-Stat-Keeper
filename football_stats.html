@@ -6,11 +6,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Football Stats">
+<meta name="apple-mobile-web-app-title" content="RD Football Stats">
 <meta name="theme-color" content="#0d1318">
-<link rel="apple-touch-icon" href="icon-football.png">
-<link rel="icon" type="image/png" href="icon-football.png">
-<title>Rebels Play Tracker</title>
+<link rel="apple-touch-icon" href="icon-rd-football.png">
+<link rel="icon" type="image/png" href="icon-rd-football.png">
+<title>Red Devils Play Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -25,7 +25,7 @@
     --line: #283746;
     --fg: #e9eff5;
     --muted: #8898a8;
-    --accent: #3b8cf0;      /* Rebels blue */
+    --accent: #e0262f;      /* Red Devils red */
     --accent-ink: #ffffff;
     --run: #3fbf7f;
     --pass: #3b8cf0;
@@ -229,7 +229,7 @@
 </head>
 <body>
 <header class="topbar">
-  <div class="brand">Rebels Play Tracker<small>Football stats</small></div>
+  <div class="brand">Red Devils Play Tracker<small>Football stats</small></div>
   <div class="qb-pick">
     <label for="qb-select">QB</label>
     <select id="qb-select"></select>
@@ -279,7 +279,7 @@
   <section class="panel wide">
     <h2>Roster</h2>
     <p class="hint">One player per line: <b>number, name, position</b>. For two-way players list both positions with a slash, like <b>RB/LB</b>. The flow uses QB and RB for runs, RB, WR and TE for catches, QB, RB and WR for kick and punt returns, and everyone for defense. Anyone can still be picked through “Other…”.</p>
-    <textarea id="roster-text" spellcheck="false" aria-label="Roster" placeholder="7, Cade Johnson, QB&#10;22, Tanner Hollings, RB/LB&#10;81, Brigham Wood, WR"></textarea>
+    <textarea id="roster-text" spellcheck="false" aria-label="Roster" placeholder="7, Player Name, QB&#10;22, Player Name, RB/LB&#10;81, Player Name, WR"></textarea>
     <div class="roster-actions">
       <button class="apply" id="roster-apply">Save roster</button>
       <span class="hint" id="roster-msg"></span>
@@ -321,8 +321,8 @@
   // ── Storage ──────────────────────────────────────────────────────────
   // Everything lives on this device (localStorage). The computed stats are
   // pushed to OBS through /api/publish-stat → Pusher channel below.
-  const KEY = 'rebels-football-play-tracker';
-  const CHANNEL = 'rebel-football-stats';
+  const KEY = 'reddevils-football-play-tracker';
+  const CHANNEL = 'reddevil-football-stats';
   let roster = [], plays = [], qb = null, pog = { opog: null, dpog: null }, nextId = 1, updatedAt = Date.now();
 
   function load() {
@@ -336,7 +336,7 @@
     // First run: bring over names and numbers from the old Stat Keeper's
     // football tab (same site, same storage). Positions have to be added.
     try {
-      const old = JSON.parse(localStorage.getItem('rebel-stat-report'));
+      const old = JSON.parse(null);
       const r = old && old.football && old.football.roster;
       if (Array.isArray(r)) {
         const seen = new Set();
@@ -689,7 +689,7 @@
       const st = {}; Object.entries(s[p.n] || {}).forEach(([k, v]) => { if (v) st[k] = v; });
       return { id: p.n, name: p.name, number: String(p.n), stats: st };
     });
-    return { football: { teamName: 'Rebels', roster: list, pog: { opog: pog.opog == null ? -1 : pog.opog, dpog: pog.dpog == null ? -1 : pog.dpog } }, _updatedAt: updatedAt };
+    return { football: { teamName: 'Red Devils', roster: list, pog: { opog: pog.opog == null ? -1 : pog.opog, dpog: pog.dpog == null ? -1 : pog.dpog } }, _updatedAt: updatedAt };
   }
   let inFlight = false, failStreak = 0;
   function setSync(ok, text) { $('sync-dot').className = 'sync-dot' + (ok ? ' on' : ''); $('sync-text').textContent = text; }

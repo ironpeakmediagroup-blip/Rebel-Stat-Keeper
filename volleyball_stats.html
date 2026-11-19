@@ -6,11 +6,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Volleyball Stats">
+<meta name="apple-mobile-web-app-title" content="RD Volleyball Stats">
 <meta name="theme-color" content="#0d1318">
-<link rel="apple-touch-icon" href="icon-volleyball.png">
-<link rel="icon" type="image/png" href="icon-volleyball.png">
-<title>Rebels Volleyball Stats</title>
+<link rel="apple-touch-icon" href="icon-rd-volleyball.png">
+<link rel="icon" type="image/png" href="icon-rd-volleyball.png">
+<title>Red Devils Volleyball Stats</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -25,7 +25,7 @@
     --line: #283746;
     --fg: #e9eff5;
     --muted: #8898a8;
-    --accent: #3b8cf0;      /* Rebels blue */
+    --accent: #e0262f;      /* Red Devils red */
     --accent-ink: #ffffff;
     --run: #3fbf7f;
     --pass: #3b8cf0;
@@ -272,7 +272,7 @@
 </head>
 <body>
 <header class="topbar">
-  <div class="brand">Rebels Volleyball Stats<small>Drag to record</small></div>
+  <div class="brand">Red Devils Volleyball Stats<small>Drag to record</small></div>
   <div class="sync"><span class="sync-dot" id="sync-dot"></span><span id="sync-text">Connecting…</span></div>
   <div class="top-actions">
   <button class="share-btn" id="share-btn" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>Share</button>
@@ -324,7 +324,7 @@
   <section class="panel wide">
     <h2>Roster</h2>
     <p class="hint">One player per line: <b>number, name, position</b>. Position is optional (S, OH, MB, RS, L, DS).</p>
-    <textarea id="roster-text" spellcheck="false" aria-label="Roster" placeholder="12, Kenzie Hansen, OH&#10;4, Brooke Low, S&#10;9, Tessa Wood, MB"></textarea>
+    <textarea id="roster-text" spellcheck="false" aria-label="Roster" placeholder="12, Player Name, OH&#10;4, Player Name, S&#10;9, Player Name, MB"></textarea>
     <div class="roster-actions">
       <button class="apply" id="roster-apply">Save roster</button>
       <span class="hint" id="roster-msg"></span>
@@ -363,7 +363,7 @@
 <script>
 (function () {
   'use strict';
-  const KEY = 'rebels-volleyball-stat-tracker-v2', CHANNEL = 'rebel-volleyball-stats';
+  const KEY = 'reddevils-volleyball-stat-tracker-v2', CHANNEL = 'reddevil-volleyball-stats';
   const STATS = [
     { id: 'ace', label: 'Ace', tone: 'y' },
     { id: 'block', label: 'Block', tone: 'b' },
@@ -382,7 +382,7 @@
       if (s && Array.isArray(s.roster)) { roster = s.roster; events = s.events || []; slots = s.slots || slots; pog = s.pog ?? null; nextId = s.nextId || 1; updatedAt = s.updatedAt || Date.now(); return; }
     } catch (e) {}
     try {
-      const old = JSON.parse(localStorage.getItem('rebel-stat-report'));
+      const old = JSON.parse(null);
       const r = old && old.volleyball && old.volleyball.roster;
       if (Array.isArray(r)) {
         const seen = new Set();
@@ -609,7 +609,7 @@
       const st = {}; Object.entries(s[p.n] || {}).forEach(([k, v]) => { if (v) st[k] = v; });
       return { id: p.n, name: p.name, number: String(p.n), stats: st };
     });
-    return { volleyball: { teamName: 'Rebels', roster: list, pog: { pog: pog == null ? -1 : pog } }, _updatedAt: updatedAt };
+    return { volleyball: { teamName: 'Red Devils', roster: list, pog: { pog: pog == null ? -1 : pog } }, _updatedAt: updatedAt };
   }
   let inFlight = false, failStreak = 0;
   function setSync(ok, text) { $('sync-dot').className = 'sync-dot' + (ok ? ' on' : ''); $('sync-text').textContent = text; }
